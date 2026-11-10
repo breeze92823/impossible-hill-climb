@@ -1,0 +1,158 @@
+/* New-player intro cutscene (game/intro.js): letterbox bars, captions, fade, Skip. */
+body.intro-on .hud-root,
+body.intro-on .touch-root {
+  visibility: hidden;
+}
+
+.intro-root {
+  --bar: clamp(22px, min(11vh, 14vw), 110px);
+  --ink: #1d1238;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  /* Catches every click so the canvas never grabs pointer lock while the film plays. */
+  pointer-events: auto;
+  touch-action: none;
+  font-family: Fredoka, system-ui, sans-serif;
+  transition: opacity 0.6s;
+}
+/* Not decided yet (waiting for the save): no bars, caption or Skip. */
+.intro-root:not(.playing) .intro-skip,
+.intro-root:not(.playing) .intro-cap {
+  display: none;
+}
+.intro-root.out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--bar);
+  background: #000;
+  transition: transform 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.intro-top {
+  top: 0;
+  transform: translateY(-100%);
+}
+.intro-bottom {
+  bottom: 0;
+  height: calc(var(--bar) + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+}
+.intro-root.bars-on .intro-bar {
+  transform: none;
+}
+
+.intro-fade {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Captions: outlined Fredoka, popped in above the bottom bar. */
+.intro-cap {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--bar) + clamp(14px, 4vh, 40px) + env(safe-area-inset-bottom, 0px));
+  max-width: min(92vw, 900px);
+  transform: translate(-50%, 12px) scale(0.85);
+  opacity: 0;
+  text-align: center;
+  font-weight: 700;
+  font-size: clamp(20px, 4.2vmin, 40px);
+  line-height: 1.1;
+  color: #fff;
+  -webkit-text-stroke: 0.16em var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 0.09em 0 var(--ink);
+  pointer-events: none;
+  transition:
+    opacity 0.25s,
+    transform 0.25s;
+}
+.intro-cap.on {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  transition:
+    opacity 0.2s,
+    transform 0.35s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+.intro-cap[data-kind='title'] {
+  bottom: auto;
+  top: calc(var(--bar) + clamp(18px, 7vh, 70px));
+  font-size: clamp(30px, 8vmin, 84px);
+  letter-spacing: 0.02em;
+  color: #ffd21f;
+  -webkit-text-stroke-color: #5a2a00;
+  text-shadow:
+    0 0.07em 0 #5a2a00,
+    0 0.14em 0.1em rgba(0, 0, 0, 0.35);
+}
+.intro-cap[data-kind='alert'] {
+  font-size: clamp(34px, 10vmin, 110px);
+  color: #ff3b2f;
+  -webkit-text-stroke-color: #2a0505;
+  text-shadow: 0 0.07em 0 #2a0505;
+}
+.intro-cap[data-kind='alert'].on {
+  transform: translate(-50%, 0) scale(1);
+  animation: intro-shake 0.12s linear 5;
+}
+.intro-cap[data-kind='alert']:not(.on) {
+  transform: translate(-50%, 0) scale(1.4);
+}
+@keyframes intro-shake {
+  0%,
+  100% {
+    margin-left: 0;
+  }
+  25% {
+    margin-left: -6px;
+  }
+  75% {
+    margin-left: 6px;
+  }
+}
+
+.intro-skip {
+  position: absolute;
+  right: calc(clamp(12px, 2.4vw, 32px) + env(safe-area-inset-right, 0px));
+  bottom: calc(var(--bar) / 2 + env(safe-area-inset-bottom, 0px));
+  transform: translateY(50%);
+  min-width: 96px;
+  min-height: 44px;
+  padding: 6px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(40, 42, 52, 0.92);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12) inset;
+  color: #fff;
+  font: 700 clamp(17px, 2.6vmin, 24px) Fredoka, system-ui, sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: 0;
+  animation: intro-in 0.4s 0.6s forwards;
+}
+.intro-skip:hover,
+.intro-skip:focus-visible {
+  background: rgba(70, 72, 86, 0.95);
+  outline: none;
+}
+.intro-skip:active {
+  transform: translateY(50%) scale(0.95);
+}
+.intro-skip-i {
+  font-size: 1.2em;
+  margin-right: 0.15em;
+}
+@keyframes intro-in {
+  to {
+    opacity: 1;
+  }
+}
