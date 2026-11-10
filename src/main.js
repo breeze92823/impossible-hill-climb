@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { ACESFilmicToneMapping, Clock, PCFSoftShadowMap, PerspectiveCamera, Scene, SRGBColorSpace, WebGLRenderer } from 'three'
-import { BIKES, CAMERA, COARSE_POINTER, ECONOMY, graphicsPreset, LANE, RENDER, TRAILS } from './config.js'
+import { BIKES, CAMERA, COARSE_POINTER, ECONOMY, graphicsPreset, JUNGLE, LANE, RENDER, TRAILS, VOLCANO, WORLDS } from './config.js'
 import * as bloxity from './bloxity.js'
 import { install as installInput, inputState, onKey } from './input.js'
 import { installTouch } from './touch.js'
@@ -16,12 +16,14 @@ import { buildZones } from './lobby/zones.js'
 import { ParticlePool, setParticleQuality, setPointScale, sparkleParticle } from './lobby/fx.js'
 import { createRider } from './game/rider.js'
 import { createPetPack } from './game/petpack.js'
-import { addWins, bikeDef, bouldersStopped, on, rideCap, state, train } from './game/state.js'
-import { angleAt, buildLane, caves, createLaneRiders, heightAt, laneLength, sAt, trainAt } from './lobby/lane.js'
+import { addWins, bikeDef, bouldersStopped, on, rideCap, state, toast, train, travelTo, worldDef } from './game/state.js'
+import { angleAt, buildLane, caves, createLaneRiders, heightAt, laneLength, nextGoal, sAt, trainAt } from './lobby/lane.js'
+import { createWorlds } from './game/worlds.js'
+import { gateEmitters } from './lobby/worldkit.js'
 import { createPopups, winSplash } from './game/popups.js'
 import { createIntro, introAllowed } from './game/intro.js'
 import { audio } from './game/audioBridge.js'
-import { installAudioHooks, isMusicOn, musicToggle, onEngine, setAltitude, setBoulders, setEngine, setSuspended, setVolume, sfx } from './audio/index.js'
+import { installAudioHooks, isMusicOn, musicToggle, onEngine, setAltitude, setBoulders, setEngine, setSuspended, setVolume, setWorldSound, sfx, worldSfx } from './audio/index.js'
 import { createHud } from './hud/hud.js'
 import { initNet, net, sendPose } from './net.js'
 import { createRemotePlayers } from './game/remotePlayers.js'
@@ -95,12 +97,35 @@ const pools = {
 }
 setPointScale(window.innerHeight * renderer.getPixelRatio(), camera.fov)
 setParticleQuality(preset.particles)
-const zones = buildZones(scene, pools)
-const lane = buildLane(scene, pools, audio)
+// World 1 (the lobby + hill lane): its particles only run while you are in it.
+let inWorld = 'w1'
+const inW1 = () => inWorld === 'w1'
+const zones = gateEmitters(pools, inW1, () => buildZones(scene, pools))
+const lane = gateEmitters(pools, inW1, () => buildLane(scene, pools, audio))
 const laneRiders = createLaneRiders(scene, lane, [], audio)
 const popups = createPopups(scene)
-// On the hill the lane owns movement: speed from the Speed stat, slope drag, slipping back.
-player.moveRule = (wx, wz, sprint) => lane.rule(player.position.x, player.position.z, rideCap(), wx, wz, sprint)
+const START = { x: 0, y: 0.3, z: -50 } // where the hill sends you back to
+// Worlds 2 + 3 (game/worlds.js): their hubs and courses, far off on X; World 1's course adapter.
+const worlds = createWorlds({
+  scene,
+  pools,
+  audio,
+  lighting,
+  w1: {
+    roots: [world.root, world.clouds, scene.getObjectByName('zones'), lane.root],
+    course: {
+      rule: (px, pz, max, wx, wz, sprint) => lane.rule(px, pz, max, wx, wz, sprint),
+      trainAt: (px, pz) => trainAt(sAt(pz), rideCap()),
+      nextGoal,
+      ground: (px, pz) => (sAt(pz) > 0 ? 'lane' : 'road'),
+      altitude: (p) => Math.max(0, heightAt(sAt(p.z))),
+      start: { ...START, facing: Math.PI },
+    },
+  },
+})
+// The course you are on owns movement (the hill: speed from the Speed stat + slope drag; the
+// jungle: launches off the ramps; the volcano: bridge speed).
+player.moveRule = (wx, wz, sprint) => worlds.course().rule(player.position.x, player.position.z, rideCap(), wx, wz, sprint)
 createPlayerBody()
 syncYawToPlayer()
 
@@ -177,6 +202,7 @@ bloxity.onReservedAreas((areas) => {
   if (h > 0) root.setProperty('--reserved-h', `${h}px`)
 })
 on('pets', () => pack.rebuild(player.renderPosition))
+on('world', (id) => travel(id))
 on('bike', () => rider.setBike(bikeDef()))
 on('trail', (id) => rider.setTrail(TRAILS.find((t) => t.id === id)?.color ?? null))
 on('levelup', () => {
@@ -210,7 +236,7 @@ installTouch({ mode: toggleMode, day: () => lighting.toggleDayNight(), respawn, 
 const hud = createHud()
 initNet() // game server: saves, leaderboards, presence (solo if unreachable)
 installAudioHooks()
-Object.assign(audio, sfx, { setEngine, setBoulders, setAltitude, npcClaim: () => {} })
+Object.assign(audio, sfx, worldSfx, { setEngine, setBoulders, setAltitude, npcClaim: () => {} })
 
 // --- Loop -------------------------------------------------------------------
 const clock = new Clock()
@@ -220,7 +246,6 @@ let readySince = 0
 const last = { x: player.position.x, z: player.position.z }
 const active = new Set() // triggers the player is inside
 const hudInfo = { boulder: 'SLOW', prompt: null }
-const START = { x: 0, y: 0.3, z: -50 } // where the hill sends you back to
 let crushed = 0 // s left squashed flat
 let returning = 0 // s until the win-pad teleport
 let shake = 0 // trauma 0..~1.5: hits add to it, it bleeds away; the camera shakes by trauma^2
@@ -270,16 +295,80 @@ function finishDeath() {
   dead?.btn.remove()
   dead = null
   bloxity.hideDeathScreen()
-  player.frozen = false
-  rider.group.scale.set(1, 1, 1)
+  clearFail()
   sendToStart()
   audio.respawn?.()
 }
+// Back to normal after a crush / fall / burn: control back, the rider upright again.
+function clearFail() {
+  failing = null
+  failPose = null
+  player.frozen = false
+  player.pinned = false
+  rider.group.scale.set(1, 1, 1)
+  rider.group.rotation.x = rider.group.rotation.z = 0
+}
 
+// The start of the world's course (the hill: the start pad; the jungle / volcano: the gate).
 function sendToStart() {
-  resetPlayer(START, Math.PI)
+  const st = worlds.course().start
+  resetPlayer(st, st.facing ?? Math.PI)
   syncYawToPlayer()
   audio.teleport?.()
+}
+
+// --- Worlds 2 + 3: falls, bites, burns -----------------------------------------------------------
+// course.fail() returns the animation; the player is pinned and the rider drawn at its pose.
+let failing = null // { anim, t, dur }
+let failPose = null
+function startFail(hz, p) {
+  const course = worlds.course()
+  failing = { anim: course.fail(hz.kind, { x: p.x, y: p.y, z: p.z }, hz.dir), t: 0, dur: inWorld === 'w2' ? JUNGLE.failSeconds : VOLCANO.failSeconds }
+  player.pinned = true
+  player.frozen = true
+  shake = Math.min(1.5, shake + 0.9)
+  buzz([60, 40, 120])
+}
+function updateFail(dt) {
+  failing.t += dt
+  failPose = failing.anim.update(dt)
+  if (failing.t >= failing.dur) {
+    failing = null
+    // Boxity's death screen runs the countdown; without the SDK the game respawns on its own.
+    if (!showDeath()) {
+      clearFail()
+      sendToStart()
+      audio.respawn?.()
+    }
+  }
+}
+
+// Travel to another world (Worlds menu, portals, a loaded save): sky, sounds, spawn.
+function travel(id) {
+  if (id === inWorld || !worlds.entry(id)) return
+  if (dead) {
+    dead.btn.remove()
+    dead = null
+    bloxity.hideDeathScreen()
+  }
+  clearFail()
+  crushed = 0
+  returning = 0
+  inWorld = id
+  worlds.enter(id)
+  respawn()
+  last.x = player.position.x
+  last.z = player.position.z
+  pack.rebuild(player.position)
+  setWorldSound(id)
+  audio.teleport?.()
+  audio.worldArrive?.()
+  rumble = 0
+  haze.style.opacity = '0'
+  audio.setBoulders?.([])
+  const w = worldDef(id)
+  if (id !== 'w1') toast(`${w.emoji ?? ''} Welcome to ${w.name}! x${w.bonus} Speed here`, 'reward')
+  setTimeout(() => confetti(player.position.x, player.position.y, player.position.z, 70), 50)
 }
 function confetti(x, y, z, n = 40) {
   const colors = ['#ffd21f', '#38e1ff', '#ff3d8b', '#8ef03c']
@@ -292,7 +381,7 @@ function dustBurst(x, y, z, n = 40) {
 }
 
 // Boulder hits / thumps near p: camera shake, buzz, impact sounds; then the rumble and dust haze.
-function laneFx(events, p) {
+function laneFx(events, p, src = lane) {
   for (const ev of events) {
     if (ev.type === 'shatter') {
       const d = Math.hypot(ev.at.x - p.x, ev.at.y - p.y, ev.at.z - p.z)
@@ -309,10 +398,33 @@ function laneFx(events, p) {
     }
   }
   rumble = 0
-  for (const b of lane.nearest(p.x, p.y, p.z)) rumble = Math.max(rumble, Math.pow(Math.max(0, 1 - b.distance / 65), 1.6))
+  const near = src.nearest(p.x, p.y, p.z)
+  for (const b of near) rumble = Math.max(rumble, Math.pow(Math.max(0, 1 - b.distance / 65), 1.6))
   haze.style.opacity = String(Math.min(0.9, Math.pow(Math.max(0, rumble - 0.35) / 0.65, 1.5)))
-  audio.setBoulders?.(lane.nearest(p.x, p.y, p.z))
+  audio.setBoulders?.(near)
 }
+
+// Worlds 2 + 3 each frame: hazards, pads, fails and the course's own camera shakes.
+function worldFx(dt, t, p) {
+  const course = worlds.course()
+  const evs = course.update(dt, t, p, true, bouldersStopped()) ?? []
+  for (const ev of evs) if (ev.type === 'shake') shake = Math.min(1.5, shake + ev.k)
+  // the boulders: impact shakes, rumble, dust haze, rumble sound (same as the hill)
+  laneFx(evs, p, course.rollers)
+  if (failing) return updateFail(dt)
+  if (dead || returning || player.pinned) return
+  const hz = course.hazard(p)
+  if (hz) return startFail(hz, p)
+  const pad = course.padAt(p)
+  if (pad) {
+    const w = addWins(pad.wins)
+    winSplash(w, pad.summit ? (inWorld === 'w2' ? 'Temple! Return' : 'Crater! Return') : undefined)
+    audio.winClaim?.(w)
+    confetti(p.x, p.y, p.z, pad.summit ? 90 : 40)
+    returning = 0.45
+  }
+}
+const allTriggers = [...zones.triggers, ...worlds.triggers]
 
 // Smooth shake (layered sines, not white noise): position jolt, a little roll and an FOV punch.
 function applyShake(dt, t) {
@@ -391,6 +503,13 @@ renderer.setAnimationLoop(() => {
 
   stepPhysics(dt) // runs the player controller + world at the fixed rate, interpolates bodies
   interpolatePlayer()
+  // A fail animation (flung into the river, sinking in lava): the camera watches it from above.
+  if (failPose) {
+    const r = player.renderPosition
+    r.x += (failPose.x - r.x) * Math.min(1, dt * 6)
+    r.z += (failPose.z - r.z) * Math.min(1, dt * 6)
+    r.y += (Math.max(failPose.y + 5, 1.5) - r.y) * Math.min(1, dt * 4)
+  }
 
   const p = player.renderPosition
   const moved = Math.hypot(p.x - last.x, p.z - last.z)
@@ -398,12 +517,12 @@ renderer.setAnimationLoop(() => {
   last.x = p.x
   last.z = p.z
   const speed = Math.hypot(player.velocity.x, player.velocity.z)
-  const throttle = Math.min(1, Math.hypot(inputState.move.x, inputState.move.z))
+  const throttle = Math.min(1, Math.max(Math.hypot(inputState.move.x, inputState.move.z), Math.abs(inputState.drive.throttle)))
 
   // Zone triggers: prompts, enter events and treadmills.
   let prompt = null
   let afkMult = 0
-  for (const trig of zones.triggers) {
+  for (const trig of allTriggers) {
     const inside = trig.test(p.x, p.z)
     if (inside && !active.has(trig)) {
       active.add(trig)
@@ -414,7 +533,8 @@ renderer.setAnimationLoop(() => {
     prompt ||= trig.prompt?.() ?? null
   }
   const onTreadmill = afkMult > 0 && speed < 1.5
-  train(dt, { riding: !crushed && speed > ECONOMY.minRideSpeed, afkMult: onTreadmill ? afkMult : 0, hill: trainAt(sAt(p.z), rideCap()) })
+  const course = worlds.course()
+  train(dt, { riding: !crushed && !failing && speed > ECONOMY.minRideSpeed, afkMult: onTreadmill ? afkMult : 0, hill: course.trainAt(p.x, p.z) })
 
   // "+216" popups: the speed earned over the last second, floating off the bike.
   popupGain += Math.max(0, state.speed - lastSpeed)
@@ -433,7 +553,7 @@ renderer.setAnimationLoop(() => {
 
   // --- The hill: boulders, crushing, win pads -------------------------------------
   {
-    const inCave = Math.abs(p.x) > LANE.halfWidth - 0.2 && !!caves.find((c) => Math.abs(sAt(p.z) - c.s) < LANE.caves.width / 2)
+    const inCave = inWorld === 'w1' && Math.abs(p.x) > LANE.halfWidth - 0.2 && !!caves.find((c) => Math.abs(sAt(p.z) - c.s) < LANE.caves.width / 2)
     if (inCave && !wasInCave) audio.caveEnter?.()
     wasInCave = inCave
     if (wasGrounded && !player.grounded && player.velocity.y > 3) audio.jump?.()
@@ -441,13 +561,14 @@ renderer.setAnimationLoop(() => {
     fallSpeed = player.grounded ? 0 : Math.min(fallSpeed, player.velocity.y)
     wasGrounded = player.grounded
   }
-  laneFx(lane.update(dt, t, bouldersStopped()), p)
+  if (inWorld === 'w1') laneFx(lane.update(dt, t, bouldersStopped()), p)
+  else worldFx(dt, t, p)
   laneRiders.update(dt, t, (at) => {
     dustBurst(at.x, at.y, at.z, 30)
     const d = Math.hypot(at.x - p.x, at.z - p.z)
     if (d < 60) audio.crush?.(d)
   })
-  if (!crushed && !dead && (lane.crushes(p.x, p.z, p.y) || devCrush)) {
+  if (inWorld === 'w1' && !crushed && !dead && (lane.crushes(p.x, p.z, p.y) || devCrush)) {
     devCrush = false
     crushed = LANE.crushSeconds
     player.frozen = true
@@ -472,7 +593,7 @@ renderer.setAnimationLoop(() => {
       }
     }
   }
-  if (!crushed && !returning) {
+  if (inWorld === 'w1' && !crushed && !returning) {
     const sp = sAt(p.z)
     for (const c of caves) {
       if (c.pad && Math.abs(p.x - c.pad.x) < 2.7 && Math.abs(sp - c.s) < 2.5) {
@@ -500,19 +621,26 @@ renderer.setAnimationLoop(() => {
     }
   }
 
+  const fp = failPose
   rider.update(dt, t, {
-    x: p.x,
-    y: p.y,
-    z: p.z,
+    x: fp ? fp.x : p.x,
+    y: fp ? fp.y : p.y,
+    z: fp ? fp.z : p.z,
     facing: player.facing,
-    speed: onTreadmill ? 9 : speed,
-    distance: onTreadmill ? 9 * dt : teleported ? 0 : moved,
-    grounded: player.grounded,
-    vy: player.velocity.y,
-    throttle: crushed ? 0 : throttle,
-    ground: sAt(p.z) > 0 ? 'lane' : 'road',
+    speed: fp ? 0 : onTreadmill ? 9 : speed,
+    distance: fp ? 0 : onTreadmill ? 9 * dt : teleported ? 0 : moved,
+    grounded: fp ? true : player.grounded,
+    vy: fp ? 0 : player.velocity.y,
+    throttle: crushed || fp ? 0 : throttle,
+    ground: course.ground(p.x, p.z),
   })
-  pack.update(dt, t, { x: p.x, y: p.y, z: p.z, facing: player.facing })
+  if (fp) {
+    const sq = fp.squash ?? 1
+    rider.group.rotation.x = fp.pitch ?? 0
+    rider.group.rotation.z = fp.roll ?? 0
+    rider.group.scale.set(1 + (1 - sq) * 0.6, sq, 1 + (1 - sq) * 0.6)
+  }
+  pack.update(dt, t, { x: fp ? fp.x : p.x, y: fp ? Math.max(fp.y, p.y - 1) : p.y, z: fp ? fp.z : p.z, facing: player.facing })
   remotes.update(dt, t)
   sendPose({ x: p.x, y: p.y, z: p.z, yaw: player.facing, speed: onTreadmill ? 9 : speed })
 
@@ -533,14 +661,15 @@ renderer.setAnimationLoop(() => {
   }
 
   zones.update(dt, t)
+  worlds.update(dt, t)
   for (const pool of Object.values(pools)) pool.update(dt, t)
-  hudInfo.boulder = lane.mode()
+  hudInfo.boulder = inWorld === 'w1' ? lane.mode() : worlds.course().mode?.() ?? lane.mode()
   hudInfo.prompt = prompt
   hud.update(dt, hudInfo)
 
   popups.update(dt)
-  audio.setEngine?.({ speed: crushed ? 0 : onTreadmill ? 9 : speed, throttle, slip: rider.slip, air: rider.airborne, uphill: Math.sin(angleAt(sAt(p.z))) * Math.min(1, speed / 4), onTreadmill })
-  audio.setAltitude?.(Math.max(0, heightAt(sAt(p.z))))
+  audio.setEngine?.({ speed: crushed || failing ? 0 : onTreadmill ? 9 : speed, throttle, slip: rider.slip, air: rider.airborne, uphill: inWorld === 'w1' ? Math.sin(angleAt(sAt(p.z))) * Math.min(1, speed / 4) : 0, onTreadmill })
+  audio.setAltitude?.(course.altitude(p))
 
   updateCamera(camera, dt)
   applyShake(dt, t)
@@ -558,12 +687,22 @@ if (import.meta.env.DEV) {
     resetPlayer({ x, y, z }, facing)
     syncYawToPlayer()
   }
-  window.__game = { player, scene, renderer, camera, postfx, bodies: bodyCount, toggleMode, teleport, state, rider, pools, lane, remotes, net, pause: (v) => (paused = v), intro: () => intro }
+  // __game.travel('w2') unlocks (dev) and travels; ?world=w2|w3 does it on load.
+  const devTravel = (id) => {
+    if (!state.worlds.includes(id)) state.worlds.push(id)
+    travelTo(id)
+  }
+  window.__game = { player, scene, renderer, camera, postfx, bodies: bodyCount, toggleMode, teleport, state, rider, pools, lane, remotes, net, worlds, travel: devTravel, pause: (v) => (paused = v), intro: () => intro }
+  const goWorld = new URLSearchParams(location.search).get('world')
+  if (goWorld && WORLDS.some((w) => w.id === goWorld)) setTimeout(() => devTravel(goWorld), 300)
   // ?tp=x,z,facingDeg puts the player there on load (for screenshots).
   const tp = new URLSearchParams(location.search).get('tp')
   if (tp) {
     const [x, z, f = 180] = tp.split(',').map(Number)
-    teleport(x, heightAt(sAt(z)) + 0.5, z, (f * Math.PI) / 180)
+    setTimeout(() => {
+      const o = worldDef().origin
+      teleport(o.x + x, inWorld === 'w1' ? heightAt(sAt(z)) + 0.5 : 0.6, o.z + z, (f * Math.PI) / 180)
+    }, goWorld ? 500 : 0)
   }
   if (new URLSearchParams(location.search).get('squash')) setTimeout(() => (devCrush = true), 1500)
   const drop = Number(new URLSearchParams(location.search).get('boulder'))

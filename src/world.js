@@ -511,6 +511,8 @@ export function createWorld(scene) {
   const clouds = makeClouds()
   scene.add(root, clouds)
   return {
+    root,
+    clouds,
     update(dt) {
       clouds.rotation.y += dt * 0.004
     },

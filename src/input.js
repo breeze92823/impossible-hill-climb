@@ -2,14 +2,18 @@
 // mouse look while pointer-locked (click grabs, Esc releases; drag where it is
 // refused or not yet granted) and wheel
 // zoom (consumed by camera.js), edge-triggered actions cleared by their consumer.
-// Touch controls (touch.js) write look/zoom/jump directly and move/sprint via
-// setTouchMove/setTouchSprint, which are merged with the keys here.
+// Touch controls (touch.js) write look/zoom/jump directly and the bike controls
+// (steer + GAS/BRAKE) via setTouchDrive into inputState.drive, which player.js
+// rides by the bike's own heading instead of the camera-relative move vector.
 export const inputState = {
   move: { x: 0, z: 0 }, // x = strafe (+ right), z = forward (+ forward)
   look: { dx: 0, dy: 0 }, // raw pixels since the camera last read them
   zoom: 0, // wheel notches since the camera last read them (+ = away)
   sprint: false,
   jump: false, // edge: cleared by player.js
+  // Touch bike controls: active while the touch UI is up; steer -1 (left)..1 (right),
+  // throttle 1 = GAS, -1 = BRAKE / reverse, 0 = coast.
+  drive: { active: false, steer: 0, throttle: 0 },
 }
 
 // One wheel notch per WheelEvent.deltaMode (pixels, lines, pages), so a trackpad
@@ -20,7 +24,7 @@ const held = new Set()
 const keyActions = new Map() // code -> fn, for one-shot keys (mode toggle, day/night...)
 let orbiting = false // right-drag fallback where pointer lock is refused
 let canvas = null
-const touch = { x: 0, z: 0, sprint: false }
+const touch = { x: 0, z: 0 }
 
 export const isLocked = () => !!canvas && document.pointerLockElement === canvas
 // Pointer lock can reject (sandboxed frame, post-Escape cooldown); that is not a fault.
@@ -47,16 +51,20 @@ function recomputeMove() {
   inputState.sprint = false // Shift / RUN speed-up removed: speed comes only from the Speed stat
 }
 
-// Joystick vector, each axis -1..1 (analog: a half tilt walks at half speed).
+// Camera-relative touch move vector, each axis -1..1 (unused by the bike controls; kept
+// for any future on-foot touch input).
 export function setTouchMove(x, z) {
   touch.x = x
   touch.z = z
   recomputeMove()
 }
 
-export function setTouchSprint(on) {
-  touch.sprint = on
-  recomputeMove()
+// Touch bike controls (touch.js). Turning them off also lets go of both pedals.
+export function setTouchDrive(steer, throttle, active = inputState.drive.active) {
+  const d = inputState.drive
+  d.active = active
+  d.steer = active ? steer : 0
+  d.throttle = active ? throttle : 0
 }
 
 export function install(showMenu, canvasEl) {
@@ -115,6 +123,7 @@ export function install(showMenu, canvasEl) {
     held.clear()
     orbiting = false
     inputState.jump = false
+    setTouchDrive(0, 0)
     recomputeMove()
   })
 }

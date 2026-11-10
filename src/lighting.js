@@ -183,10 +183,15 @@ export function createLighting(scene, renderer, preset) {
     addLamp,
     isNight: () => target === 1,
     // A world's sky { day, night } (WORLDS): swapped at once, keeping day or night as it is.
+    // sky.fog { near, far } (optional) replaces FOG; omit sky (null) to go back to TIME_OF_DAY.
     setMoods(sky) {
-      if (sky.day === D && sky.night === N) return
-      D = sky.day
-      N = sky.night
+      const day = sky?.day ?? TIME_OF_DAY.day
+      const nightMood = sky?.night ?? TIME_OF_DAY.night
+      scene.fog.near = sky?.fog?.near ?? FOG.near
+      scene.fog.far = sky?.fog?.far ?? FOG.far
+      if (day === D && nightMood === N) return
+      D = day
+      N = nightMood
       apply()
       bakeEnvironment(night)
     },

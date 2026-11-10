@@ -2,7 +2,7 @@ import { inputState } from './input.js'
 import { player } from './player.js'
 import { segmentClear } from './physics.js'
 import { isFirstPerson, onModeChanged, setMode } from './modes.js'
-import { CAMERA, PHYSICS } from './config.js'
+import { CAMERA, PHYSICS, TOUCH } from './config.js'
 
 // One camera, two modes (modes.js). Character mode is a third-person chase cam
 // (ported from Clean Leaves for Loot): it owns its own yaw/pitch and orbits the
@@ -28,6 +28,7 @@ let zoomTarget = CAMERA.distance
 let zoomEased = CAMERA.distance
 let rush = 0 // eased 0..1 sprint factor
 let clearance = 1 // 0..1 of the boom the walls allow, eased back out
+let lookIdle = Infinity // s since the last look drag (touch bike: then the camera follows)
 
 export const getYaw = () => state.yaw
 export const getPitch = () => state.pitch
@@ -56,6 +57,7 @@ onModeChanged((mode) => {
 })
 
 export function update(camera, dt) {
+  lookIdle = inputState.look.dx || inputState.look.dy ? 0 : lookIdle + dt
   state.yaw -= inputState.look.dx * CAMERA.lookSensitivity * sensitivity
   state.pitch += inputState.look.dy * CAMERA.lookSensitivity * sensitivity
   inputState.look.dx = 0
@@ -106,6 +108,15 @@ export function update(camera, dt) {
 
   // Sprint framing: FOV widens a little at speed.
   const speed = Math.hypot(player.velocity.x, player.velocity.z)
+
+  // Touch bike controls steer the bike, not the view: once the player stops dragging the
+  // view, the chase cam swings back in behind the rolling bike (not while it stands still,
+  // so a look round at a stop stays put).
+  if (!fp && inputState.drive.active && lookIdle > TOUCH.followDelay && !player.frozen) {
+    const want = player.facing + Math.PI
+    const diff = Math.atan2(Math.sin(want - state.yaw), Math.cos(want - state.yaw))
+    state.yaw += diff * (1 - Math.exp(-TOUCH.followRate * Math.min(1, speed / 4) * dt))
+  }
   const targetRush = clamp((speed - PHYSICS.walkSpeed) / (PHYSICS.sprintSpeed - PHYSICS.walkSpeed), 0, 1)
   rush += (targetRush - rush) * (1 - Math.exp(-CAMERA.speedEase * dt))
   const fov = CAMERA.fov + CAMERA.speedFov * rush

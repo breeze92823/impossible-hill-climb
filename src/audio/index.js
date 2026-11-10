@@ -17,6 +17,17 @@ import * as music from './music.js'
 export { installAudioHooks, musicToggle } from './hooks.js'
 export { sfx, setVolume, setMuted, setSuspended, isMuted, toggleMuted }
 export { isMusicOn, setMusicOn, toggleMusic } from './music.js'
+export { worldSfx } from './worldsfx.js'
+import { setWorldBed } from './worldsfx.js'
+// The world you are in: its ambience bed and birdsong (World 1 = the lobby's own wind + birds).
+export function setWorldSound(id) {
+  try {
+    setWorldBed(id)
+    ambience.setBirds(id === 'w3' ? 0 : id === 'w2' ? 2 : 1)
+  } catch (e) {
+    warnOnce('world', e)
+  }
+}
 // onEngine((type, k) => ...): the player's engine 'pop' / 'shift' / 'launch' moments, so the
 // exhaust flames land on the same beat as the sound.
 export const onEngine = (fn) => engine.onEngine(fn)

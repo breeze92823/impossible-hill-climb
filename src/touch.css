@@ -1,4 +1,12 @@
-/* Touch controls (touch.js). Hidden unless body.touch-ui. */
+/* Touch bike controls (touch.js). Hidden unless body.touch-ui. The control sizes live on
+   :root so hud.css can keep the HUD clear of them (--cluster). */
+:root {
+  --tc-gap: 10px;
+  --tc-steer: clamp(64px, 18vmin, 92px); /* one steer key (square) */
+  --tc-pedal-w: clamp(62px, 17vmin, 86px);
+  --tc-pedal-h: clamp(84px, 24vmin, 120px);
+  --tc-jump: clamp(56px, 15vmin, 78px);
+}
 .touch-root {
   display: none;
   position: fixed;
@@ -23,54 +31,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* --- Zones: the left part moves, the rest looks ------------------------------ */
+/* --- Look zone: every free bit of screen drags the view / pinches the zoom ---------- */
 .touch-zone {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: auto;
 }
-.touch-left {
-  left: 0;
-  width: 45%;
-}
-.touch-right {
-  right: 0;
-  width: 55%;
-}
 
-/* --- Floating joystick -------------------------------------------------------- */
-.joy-base {
-  --size: clamp(104px, 28vmin, 150px);
-  position: absolute;
-  /* Resting spot (a hint); while held it is moved under the thumb. */
-  left: calc(var(--safe-l) + var(--pad) + var(--size) / 2 + 8px);
-  top: calc(100% - var(--safe-b) - var(--pad) - var(--size) / 2 - 8px);
-  width: var(--size);
-  height: var(--size);
-  margin: calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  opacity: 0.55;
-  transition: opacity 0.15s;
-}
-.joy-base.active {
-  opacity: 1;
-}
-.joy-knob {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 44%;
-  height: 44%;
-  margin: -22% 0 0 -22%;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-/* --- Buttons -------------------------------------------------------------------- */
+/* --- Buttons ------------------------------------------------------------------------ */
 .touch-btn {
   pointer-events: auto;
   display: flex;
@@ -89,6 +57,9 @@
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
+  transition:
+    transform 0.06s,
+    background-color 0.06s;
 }
 .touch-btn:active,
 .touch-btn.on {
@@ -105,6 +76,7 @@
   stroke-linejoin: round;
 }
 
+/* Corner row: camera mode, music, day/night, respawn (hud.css keeps the HUD clear). */
 .touch-top {
   position: absolute;
   top: calc(var(--safe-t) + var(--pad));
@@ -126,35 +98,95 @@
   display: inline;
 }
 
-/* Thumb arc in the bottom-right corner: jump biggest and closest to the thumb. */
-.touch-cluster {
-  --jump: clamp(72px, 20vmin, 100px);
-  --side: clamp(52px, 14vmin, 70px);
+/* --- Slide pads: a finger can roll from key to key without lifting ------------------ */
+.touch-pad {
   position: absolute;
-  right: calc(var(--safe-r) + var(--pad));
-  bottom: calc(var(--safe-b) + var(--pad));
-  width: calc(var(--jump) + var(--side) + 12px);
-  height: calc(var(--jump) + var(--side) + 12px);
+  bottom: calc(var(--safe-b) + var(--pad) - 8px);
+  padding: 8px; /* a near miss still lands on the closest key */
+  pointer-events: auto;
+  display: grid;
+  gap: var(--tc-gap);
 }
-.touch-cluster .touch-btn {
-  position: absolute;
+.touch-pad .touch-btn.on {
+  transform: scale(0.94);
+}
+
+/* Steer: two big keys under the left thumb. */
+.touch-steer {
+  left: calc(var(--safe-l) + var(--pad) - 8px);
+  grid-template-columns: var(--tc-steer) var(--tc-steer);
+  grid-template-rows: var(--tc-steer);
+}
+.touch-btn.steer {
+  border-radius: 24%;
+}
+.touch-btn.steer svg {
+  width: 50%;
+  height: 50%;
+  stroke-width: 3;
+}
+
+/* Pedals: BRAKE | GAS side by side, JUMP over GAS (slide GAS -> JUMP keeps the gas on). */
+.touch-pedals {
+  right: calc(var(--safe-r) + var(--pad) - 8px);
+  grid-template-columns: var(--tc-pedal-w) var(--tc-pedal-w);
+  grid-template-rows: var(--tc-jump) var(--tc-pedal-h);
+  align-items: end;
 }
 .touch-btn.jump {
-  right: 0;
-  bottom: 0;
-  width: var(--jump);
-  height: var(--jump);
-  font-size: clamp(14px, 3.8vmin, 18px);
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: center;
+  width: var(--tc-jump);
+  height: var(--tc-jump);
+  flex-direction: column;
+  gap: 1px;
+  font-size: clamp(10px, 2.6vmin, 13px);
 }
-.touch-btn.sprint {
-  left: 0;
-  bottom: calc((var(--jump) - var(--side)) / 2);
-  width: var(--side);
-  height: var(--side);
+.touch-btn.jump svg {
+  width: 42%;
+  height: 42%;
+  stroke-width: 3;
 }
-.touch-btn.mode {
-  top: 0;
-  right: calc((var(--jump) - var(--side)) / 2);
-  width: var(--side);
-  height: var(--side);
+.touch-btn.pedal {
+  grid-row: 2;
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 10%;
+  font-size: clamp(12px, 3.4vmin, 17px);
+  font-weight: 700;
+  overflow: hidden;
+}
+/* Rubber ridges on the pedal face. */
+.touch-btn.pedal .grip {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 14%;
+  bottom: 34%;
+  border-radius: 6px;
+  background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.38) 0 4px, transparent 4px 10px);
+}
+.touch-btn.gas {
+  grid-column: 2;
+  height: 100%;
+  background: rgba(36, 168, 82, 0.55);
+  border-color: rgba(190, 255, 205, 0.8);
+}
+.touch-btn.gas.on {
+  background: rgba(62, 220, 112, 0.85);
+  border-color: #fff;
+}
+.touch-btn.brake {
+  grid-column: 1;
+  height: 82%;
+  background: rgba(196, 44, 44, 0.55);
+  border-color: rgba(255, 200, 200, 0.8);
+}
+.touch-btn.brake.on {
+  background: rgba(240, 70, 60, 0.85);
+  border-color: #fff;
 }

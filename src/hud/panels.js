@@ -3,7 +3,7 @@
 // overlay, spinwheel.js). Panels only
 // read `state` and call state.js actions; they re-render when their signature
 // (the bits of state they show) changes, checked a few times per second.
-import { ALL_BIKES, BIKES, DAILY_REWARDS, ECONOMY, FEATURED_BIKES, PET_LIMITS, PETS, PRIZE_BIKES, TRAILS, WORLDS } from '../config.js'
+import { ALL_BIKES, BIKES, DAILY_REWARDS, ECONOMY, FEATURED_BIKES, PET_LIMITS, PETS, PRIZE_BIKES, TRAILS, WORLD_BIKES, WORLDS } from '../config.js'
 import {
   bikeUnlocked,
   buyFeaturedBike,
@@ -26,6 +26,7 @@ import {
   state,
   togglePet,
   trailOwned,
+  travelTo,
   unequipAll,
 } from '../game/state.js'
 import { ICONS, bikeIcon, calendarIcon, esc, petIcon } from './icons.js'
@@ -48,7 +49,7 @@ const GEM_PACKS = [
   { gems: 750 },
   { gems: 2000, tag: 'BEST VALUE' },
 ]
-const ALL_SHOP = [...FEATURED_BIKES, ...PRIZE_BIKES, ...BIKES] // inventory order
+const ALL_SHOP = [...[...WORLD_BIKES].reverse(), ...FEATURED_BIKES, ...PRIZE_BIKES, ...BIKES] // inventory order (best first)
 
 // --- DOM helpers (shared with hud.js) ----------------------------------------------
 export function h(tag, cls = '', html = '') {
@@ -331,17 +332,24 @@ function makeDefs(ctx) {
       colors: ['#a6ff3a', '#3fd41a'],
       studs: true,
       chips: () => '',
-      sig: () => `${state.level}`,
+      sig: () => `${state.level}|${state.world}|${state.worlds.join()}`,
       render(b) {
         const list = h('div', 'hud-wd2-list')
-        WORLDS.forEach((w, k) => {
-          const card = h('div', `hud-wd2${k === 0 ? ' is-here' : ''}`)
-          card.innerHTML = `<div class="hud-wd2-art">${worldArt(w.art)}</div><div class="hud-wd2-shade"></div><div class="hud-wd2-name hud-ol">${esc(w.name)}</div><div class="hud-wd2-sub hud-ol">${k === 0 ? "You're here!" : `Lvl. ${w.level} Required`}</div>`
-          if (k > 0) {
+        WORLDS.forEach((w) => {
+          const here = state.world === w.id
+          const open = state.worlds.includes(w.id)
+          const card = h('div', `hud-wd2${here ? ' is-here' : ''}`)
+          const sub = here ? "You're here!" : open ? 'Unlocked!' : `Lvl. ${w.level} Required`
+          const boost = w.bonus > 1 ? `<div class="hud-wd2-boost hud-ol">x${w.bonus} Speed in this world</div>` : ''
+          const pct = Math.min(100, Math.round((state.level / Math.max(1, w.level)) * 100))
+          const bar = !open ? `<div class="hud-wd2-bar"><span style="width:${pct}%"></span></div>` : ''
+          card.innerHTML = `<div class="hud-wd2-art">${worldArt(w.art)}</div><div class="hud-wd2-shade"></div><div class="hud-wd2-name hud-ol">${esc(w.name)}</div><div class="hud-wd2-sub hud-ol">${sub}</div>${boost}${bar}`
+          if (!here) {
             card.appendChild(
-              btn('hud-wd2-btn', `<span class="hud-ol">${w.soon ? 'COMING SOON' : 'LOCKED'}</span>`, () =>
-                ctx.toast(w.soon ? `${w.name} is coming soon!` : `Reach Level ${w.level} to unlock ${w.name}`, 'info'),
-              ),
+              btn(`hud-wd2-btn${open ? ' is-go' : ''}`, `<span class="hud-ol">${open ? 'TELEPORT' : 'LOCKED'}</span>`, () => {
+                if (!open) return ctx.toast(`Reach Level ${w.level} to unlock ${w.name} (you are ${state.level})`, 'info')
+                if (travelTo(w.id)) ctx.close?.()
+              }),
             )
           }
           list.appendChild(card)

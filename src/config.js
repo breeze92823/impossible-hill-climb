@@ -178,8 +178,16 @@ export function graphicsPreset(name) {
 }
 
 // --- Touch controls (touch.js) --------------------------------------------------
+// Bike controls on touch screens (touch.js): steer pad on the left, BRAKE / GAS / JUMP on
+// the right. Steering turns the bike itself (player.js), and the chase cam swings back in
+// behind it (camera.js) once the player stops dragging the view.
 export const TOUCH = {
-  deadZone: 0.12, // fraction of the joystick radius that does nothing
+  steerRate: 2.6, // rad/s the bike turns at full lock
+  steerStill: 0.6, // fraction of steerRate while standing still (turning on the spot)
+  steerEase: 12, // 1/s the steer eases onto the held side (no snap, the rider leans in)
+  reverse: 0.4, // BRAKE: stops the bike, then rolls it back at this fraction of the speed
+  followDelay: 1.1, // s after the last look drag before the camera swings back behind the bike
+  followRate: 2.6, // 1/s the camera swings in behind the bike (scaled up to full by ~4 m/s)
   lookScale: 1.5, // touch drag pixels -> look, relative to a mouse pixel
   pinchPixelsPerNotch: 30, // finger spread change that equals one wheel notch
 }
@@ -350,6 +358,8 @@ export const RIDE = {
   dust: {
     road: [[0.55, 0.54, 0.57], [0.78, 0.77, 0.8]],
     lane: [[0.95, 0.52, 0.26], [1, 0.82, 0.62]],
+    jungle: [[0.42, 0.34, 0.2], [0.7, 0.66, 0.48]], // mud and leaf litter
+    lava: [[0.24, 0.2, 0.22], [0.55, 0.45, 0.42]], // ash
   },
 }
 
@@ -402,7 +412,19 @@ export const PRIZE_BIKES = [
   { id: 'astralwing', name: 'Astral Wing', style: 'hyper', body: '#8a3cff', accent: '#e9d4ff', rim: '#ff5fd8', neon: '#c56bff', perSpeed: 1200, prize: 'spin' },
   { id: 'metalline', name: 'Metalline Bike', style: 'sport', body: '#c9d6e6', accent: '#2a3550', rim: '#38e1ff', neon: '#38e1ff', perSpeed: 900, prize: 'daily' },
 ]
-export const ALL_BIKES = [...BIKES, ...FEATURED_BIKES, ...PRIZE_BIKES]
+// World bikes: sold on the unlock pads in the Jungle (w2) and Volcano (w3) hubs, unlocked by wins
+// like the garage (free once you have the wins), equipped there or from the Inventory.
+export const WORLD_BIKES = [
+  { id: 'croccrusher', world: 'w2', name: 'Croc Crusher', style: 'dirt', body: '#3a9a2a', accent: '#d8f05a', rim: '#ffd21f', perSpeed: 4000, wins: 250000 },
+  { id: 'canopy', world: 'w2', name: 'Canopy Glider', style: 'sport', body: '#22c46a', accent: '#ffe14a', rim: '#1a5a2a', perSpeed: 9000, wins: 900000 },
+  { id: 'templetiger', world: 'w2', name: 'Temple Tiger', style: 'chopper', body: '#ff9a1f', accent: '#1d1d1d', rim: '#ffd21f', perSpeed: 20000, wins: 3000000 },
+  { id: 'jadeserpent', world: 'w2', name: 'Jade Serpent', style: 'hyper', body: '#12b27a', accent: '#e9ffd4', rim: '#5dffb0', neon: '#5dffb0', perSpeed: 50000, wins: 10000000 },
+  { id: 'cinderscoot', world: 'w3', name: 'Cinder Scoot', style: 'scooter', body: '#ff6a1a', accent: '#2a1205', rim: '#ffb020', perSpeed: 120000, wins: 8000000 },
+  { id: 'obsidianfang', world: 'w3', name: 'Obsidian Fang', style: 'sport', body: '#1d1a22', accent: '#ff3d1f', rim: '#ff5a1a', neon: '#ff5a1a', perSpeed: 300000, wins: 30000000 },
+  { id: 'magmahog', world: 'w3', name: 'Magma Hog', style: 'cruiser', body: '#8a1a10', accent: '#ffb020', rim: '#2a1205', perSpeed: 800000, wins: 100000000 },
+  { id: 'infernowyrm', world: 'w3', name: 'Inferno Wyrm', style: 'flame', body: '#ff3d12', accent: '#1a0a05', rim: '#ffd21f', neon: '#ffae2b', perSpeed: 2500000, wins: 400000000 },
+]
+export const ALL_BIKES = [...BIKES, ...FEATURED_BIKES, ...PRIZE_BIKES, ...WORLD_BIKES]
 
 // Pets follow the player in a little pack; each equipped pet multiplies Speed gains by mult.
 // kind picks the model in lobby/pets.js: 'dog' | 'chicken' | 'cow' | 'goat' | 'horse' | 'bull' | 'llama' |
@@ -431,6 +453,36 @@ export const PETS = {
   shark: { name: 'Shark', kind: 'shark', color: '#3a8fe8', spot: '#ffffff', mult: 3.5, rarity: 'Epic' },
   kraken: { name: 'Kraken', kind: 'kraken', color: '#3d5bd8', spot: '#8aa6ff', mult: 20, rarity: 'Mythic' },
   stingray: { name: 'Stingray', kind: 'stingray', color: '#e8d6a0', spot: '#b8a070', mult: 2.5, rarity: 'Rare' },
+  // --- World 2 (Jungle). New kinds: 'monkey' | 'toucan' | 'frog' | 'chameleon' | 'tiger' | 'gorilla'.
+  // Monkey Egg
+  monkey: { name: 'Cheeky Monkey', kind: 'monkey', color: '#8a5530', spot: '#f2c99a', mult: 2.2, rarity: 'Common' },
+  toucan: { name: 'Toucan', kind: 'toucan', color: '#1d1d22', spot: '#ff9a1f', mult: 2.6, rarity: 'Common' },
+  treefrog: { name: 'Tree Frog', kind: 'frog', color: '#5fe04c', spot: '#ff6a2a', mult: 3.4, rarity: 'Uncommon' },
+  chameleon: { name: 'Chameleon', kind: 'chameleon', color: '#3fd1a0', spot: '#ffd21f', mult: 5, rarity: 'Rare' },
+  tiger: { name: 'Tiger', kind: 'tiger', color: '#ff8a1f', spot: '#1d1d22', mult: 9, rarity: 'Epic' },
+  gorilla: { name: 'Silverback', kind: 'gorilla', color: '#3a3a44', spot: '#a9a9b8', mult: 45, rarity: 'Mythic', size: 1.15 },
+  // Temple Egg
+  goldmonkey: { name: 'Golden Monkey', kind: 'monkey', color: '#ffc531', spot: '#fff1c4', mult: 4, rarity: 'Common' },
+  macaw: { name: 'Scarlet Macaw', kind: 'toucan', color: '#e8262e', spot: '#ffd21f', beak: '#f6f0e0', mult: 4.6, rarity: 'Common' },
+  dartfrog: { name: 'Dart Frog', kind: 'frog', color: '#1f7bff', spot: '#1d1d22', mult: 6, rarity: 'Uncommon' },
+  jaguar: { name: 'Jaguar', kind: 'tiger', color: '#f2c14a', spot: '#5a3a14', spots: true, mult: 9.5, rarity: 'Rare' },
+  panther: { name: 'Shadow Panther', kind: 'tiger', color: '#1d1d26', spot: '#3a3a4a', eye: '#5dff4a', mult: 18, rarity: 'Epic', size: 1.1 },
+  idolkong: { name: 'Idol Kong', kind: 'gorilla', color: '#ffc531', spot: '#3fd17a', mult: 120, rarity: 'Mythic', size: 1.3 },
+  // --- World 3 (Volcano). New kinds: 'salamander' | 'imp' | 'slime' | 'golem' | 'phoenix'; glow = emissive spots.
+  // Ember Egg
+  salamander: { name: 'Salamander', kind: 'salamander', color: '#2a2226', spot: '#ff6a1a', glow: true, mult: 7, rarity: 'Common' },
+  fireimp: { name: 'Fire Imp', kind: 'imp', color: '#e8262e', spot: '#ffb020', glow: true, mult: 8, rarity: 'Common' },
+  magmaslime: { name: 'Magma Slime', kind: 'slime', color: '#ff5a1a', spot: '#ffd21f', glow: true, mult: 11, rarity: 'Uncommon' },
+  lavagolem: { name: 'Lava Golem', kind: 'golem', color: '#3a3036', spot: '#ff6a1a', glow: true, mult: 16, rarity: 'Rare' },
+  phoenix: { name: 'Phoenix', kind: 'phoenix', color: '#ff4a12', spot: '#ffd21f', glow: true, mult: 32, rarity: 'Epic' },
+  magmadragon: { name: 'Magma Dragon', kind: 'dragon', color: '#2a1a1e', spot: '#ff6a1a', glow: true, mult: 200, rarity: 'Mythic', size: 1.2 },
+  // Inferno Egg
+  blazenewt: { name: 'Blaze Newt', kind: 'salamander', color: '#1a2a4a', spot: '#38e1ff', glow: true, mult: 14, rarity: 'Common' },
+  infernoimp: { name: 'Inferno Imp', kind: 'imp', color: '#7a2cff', spot: '#ff5fd8', glow: true, mult: 16, rarity: 'Common' },
+  obsidianslime: { name: 'Obsidian Slime', kind: 'slime', color: '#2a1f3a', spot: '#c56bff', glow: true, mult: 22, rarity: 'Uncommon' },
+  coregolem: { name: 'Core Golem', kind: 'golem', color: '#1d1a22', spot: '#38e1ff', glow: true, mult: 34, rarity: 'Rare', size: 1.15 },
+  sunphoenix: { name: 'Sun Phoenix', kind: 'phoenix', color: '#ffd21f', spot: '#ffffff', glow: true, mult: 70, rarity: 'Epic' },
+  infernowyrm: { name: 'Inferno Wyrm', kind: 'dragon', color: '#7a1a10', spot: '#ffd21f', glow: true, mult: 600, rarity: 'Mythic', size: 1.35 },
 }
 // Pet slots: equipped at once / owned at most. The [+] buttons in the Pets panel buy more
 // (premium: +petSlotStep equip slots, +petStorageStep storage).
@@ -438,11 +490,16 @@ export const PET_LIMITS = { slots: 3, storage: 50, slotStep: 1, storageStep: 25,
 export const MAX_EQUIPPED_PETS = PET_LIMITS.slots
 export const STARTER_PET = 'papillon'
 // Eggs on the hatchery pedestals (south); cost is in wins, pets are [id, chance %] in the
-// order the egg popup shows them (3 x 2). tier is the word above the egg.
+// order the egg popup shows them (3 x 2). tier is the word above the egg. world: the hub it stands
+// in (default 'w1', the hatchery); world eggs stand in their world's hub.
 export const EGGS = [
   { id: 'dog', name: 'Dog Egg', tier: 'Common', cost: 150, color: '#ffffff', spots: '#7a3e1c', label: '#ffffff', pets: [['papillon', 29], ['maltese', 54], ['boston', 12], ['golden', 1.59], ['greatdane', 0.01], ['akita', 3.4]] },
   { id: 'cow', name: 'Cow Egg', tier: 'Rare', cost: 2500, color: '#ffffff', spots: '#1d1d22', label: '#21d8ff', pets: [['chicken', 29], ['cow', 54], ['goat', 12], ['horse', 1.59], ['bull', 0.01], ['llama', 3.4]] },
   { id: 'crab', name: 'Crab Egg', tier: 'Legendary', cost: 12000, color: '#ff5a3a', spots: '#ffb020', label: '#ffb020', pets: [['seahorse', 29], ['crab', 54], ['pufferfish', 12], ['shark', 1.59], ['kraken', 0.01], ['stingray', 3.4]] },
+  { id: 'monkeyegg', world: 'w2', name: 'Monkey Egg', tier: 'Jungle', cost: 25000, color: '#8a5530', spots: '#f2c14a', label: '#7dff4a', pets: [['monkey', 54], ['toucan', 29], ['treefrog', 12], ['tiger', 1.59], ['gorilla', 0.01], ['chameleon', 3.4]] },
+  { id: 'templeegg', world: 'w2', name: 'Temple Egg', tier: 'Golden', cost: 400000, color: '#ffd23a', spots: '#2fbf4a', label: '#ffd21f', pets: [['goldmonkey', 54], ['macaw', 29], ['dartfrog', 12], ['panther', 1.59], ['idolkong', 0.01], ['jaguar', 3.4]] },
+  { id: 'emberegg', world: 'w3', name: 'Ember Egg', tier: 'Molten', cost: 3000000, color: '#3a2226', spots: '#ff6a1a', label: '#ff8a1f', pets: [['salamander', 54], ['fireimp', 29], ['magmaslime', 12], ['phoenix', 1.59], ['magmadragon', 0.01], ['lavagolem', 3.4]] },
+  { id: 'infernoegg', world: 'w3', name: 'Inferno Egg', tier: 'Infernal', cost: 40000000, color: '#ff4a12', spots: '#ffd21f', label: '#ff3d6e', pets: [['blazenewt', 54], ['infernoimp', 29], ['obsidianslime', 12], ['sunphoenix', 1.59], ['infernowyrm', 0.01], ['coregolem', 3.4]] },
 ]
 // Egg popup: auto-hatch waits this long between eggs (s).
 export const HATCH = { autoDelay: 0.4 }
@@ -505,12 +562,131 @@ export const DAILY_REWARDS = [
   { speed: 10000, look: 'rainbow', icon: 'shoe', shoe: '#3a8bff' },
   { bike: 'metalline', dupe: { wins: 1000 }, look: 'rainbow', icon: 'bike' },
 ]
-// Worlds menu. Only World 1 exists; the others show their level gate and "Coming soon".
+// Worlds (game/worlds.js; Worlds menu, portals). All three live in the one scene, far apart on X
+// (origin = the hub centre; nothing of one world is in sight of another), and only the one you are
+// in is drawn. Reaching `level` unlocks a world for good (saved in state.worlds: a rebirth resets
+// the level, not the unlock). bonus = Speed gains x this while you are in that world (shown in the
+// HUD). sky = that world's two lighting moods + fog (lighting.setMoods); World 1 uses TIME_OF_DAY.
 export const WORLDS = [
-  { id: 'w1', name: 'World 1', art: 'hill' },
-  { id: 'w2', name: 'World 2 (Jungle)', level: 75, art: 'jungle', soon: true },
-  { id: 'w3', name: 'World 3 (Lava)', level: 150, art: 'lava', soon: true },
+  { id: 'w1', name: 'World 1', short: 'Hill', art: 'hill', level: 0, origin: { x: 0, z: 0 }, bonus: 1 },
+  {
+    id: 'w2', name: 'World 2 (Jungle)', short: 'Jungle', art: 'jungle', level: 75, origin: { x: 2000, z: 0 }, bonus: 2, emoji: '🌴', color: '#7dff4a',
+    sky: {
+      fog: { near: 130, far: 560 },
+      day: { zenith: '#2aa6d8', horizon: '#c8f2c0', sunColor: '#fff0c8', sunIntensity: 2.4, sunElevation: 62, sunAzimuth: 20, hemiSky: '#e0ffe0', hemiGround: '#4a8a2a', hemiIntensity: 0.95, envIntensity: 0.45, lampIntensity: 0, stars: 0, exposure: 0.95 },
+      night: { zenith: '#04121a', horizon: '#123a2a', sunColor: '#a8e0c8', sunIntensity: 0.5, sunElevation: 40, sunAzimuth: -50, hemiSky: '#2a5a4a', hemiGround: '#0a1a10', hemiIntensity: 0.4, envIntensity: 0.25, lampIntensity: 30, stars: 1, exposure: 1.15 },
+    },
+  },
+  {
+    id: 'w3', name: 'World 3 (Lava)', short: 'Volcano', art: 'lava', level: 150, origin: { x: -2000, z: 0 }, bonus: 4, emoji: '🌋', color: '#ff8a1f',
+    sky: {
+      fog: { near: 90, far: 480 },
+      day: { zenith: '#3a1426', horizon: '#ff8a4a', sunColor: '#ffb070', sunIntensity: 2.1, sunElevation: 34, sunAzimuth: 160, hemiSky: '#ffb08a', hemiGround: '#3a1a14', hemiIntensity: 0.85, envIntensity: 0.4, lampIntensity: 0, stars: 0.15, exposure: 1.0 },
+      night: { zenith: '#0a0408', horizon: '#5a1a10', sunColor: '#ff7a4a', sunIntensity: 0.6, sunElevation: 30, sunAzimuth: -120, hemiSky: '#6a2a1a', hemiGround: '#1a0806', hemiIntensity: 0.45, envIntensity: 0.25, lampIntensity: 30, stars: 0.8, exposure: 1.2 },
+    },
+  },
 ]
+// World hubs (lobby/worldhub.js), in local metres from the world origin (+Z south). Every hub has
+// the same layout, themed per world: spawn plaza in the middle, eggs west, treadmills east, bike
+// pads and portals south, the course gate north (the course runs on toward -Z from gateZ).
+export const HUB = {
+  half: { x: 56, z: 46 }, // walkable floor
+  spawn: { x: 0, z: 22 }, // where you arrive (facing north)
+  gateZ: -46, // the course starts here
+  eggs: { x: -36, z: [-8, 10] },
+  mills: { x: 40, z0: -24 }, // treadmills run north -> south from z0
+  bikes: { z: 34, x: [-30, -12, 12, 30] },
+  portals: { z: 34, x: [-48, 48] },
+  chest: { x: -36, z: 28 },
+}
+// Hub treadmills per world, north -> south (same rules as TREADMILLS; name on the sign).
+export const WORLD_TREADMILLS = {
+  w2: [
+    { name: 'Golden Idol Run', mult: 800, color: '#ffe14a', alt: '#3a2a10', req: { rebirths: 15 }, size: 'xl' },
+    { name: 'Temple Treads', mult: 300, color: '#ffb020', req: { rebirths: 10 }, size: 'lg', glow: true },
+    { name: 'Croc Crawler', mult: 120, color: '#2fbf6a', req: { rebirths: 6 }, size: 'lg', glow: true },
+    { name: 'Banana Belt', mult: 40, color: '#ffd21f', req: { rebirths: 3 } },
+    { name: 'Vine Mill', mult: 15, color: '#6fd13a' },
+    { name: 'Vine Mill', mult: 15, color: '#6fd13a' },
+  ],
+  w3: [
+    { name: 'Core Furnace', mult: 4000, color: '#ffb020', alt: '#1d1d1d', req: { rebirths: 25 }, size: 'xl' },
+    { name: 'Obsidian Overdrive', mult: 1500, color: '#b04bff', req: { rebirths: 18 }, size: 'lg', glow: true },
+    { name: 'Magma Mill', mult: 600, color: '#ff3d1f', req: { rebirths: 12 }, size: 'lg', glow: true },
+    { name: 'Cinder Belt', mult: 200, color: '#ff7a1f', req: { rebirths: 8 } },
+    { name: 'Ash Mill', mult: 60, color: '#8a8f9c' },
+    { name: 'Ash Mill', mult: 60, color: '#8a8f9c' },
+  ],
+}
+// World chests (one per world hub, own cooldown each, saved in state.worldChests): random wins.
+export const WORLD_CHESTS = { w2: { wins: [4000, 20000], cooldown: 900 }, w3: { wins: [150000, 600000], cooldown: 900 } }
+
+// --- World 2: Jungle Jumps (lobby/jungle.js) ----------------------------------------------------------
+// From the hub gate a trail of stone islands runs north over a crocodile river. Every island ends in
+// a wooden ramp; leaving it you fly with the speed you have (MAX), so the gaps (wider and wider) are
+// a Speed check: the gap after island k is set so riding at MAX need[k] (no sprint) just clears it
+// (Shift = a little extra). Fall short and the crocs get you. Swinging logs (low in the middle,
+// high at the sides) and spinning spike sweepers (jump them, Space) guard the higher islands: a hit
+// knocks you into the river. Temple boulders roll out of the Golden Temple all the way back to the
+// gate (hopping the gaps): hide in the cave on the side of each island, where the totem pad is
+// (+N Wins, back to the hub). The last island is the Golden Temple. All lengths in m; s = m along the course from the gate (local z = gateZ - s).
+export const JUNGLE = {
+  halfWidth: 14, // island half-width
+  startLen: 30, // the first island, out of the gate
+  islandLen: 38,
+  ramp: { len: 9, height: 2.2, halfWidth: 8 },
+  launch: 0.42, // m/s of upward launch per m/s of ground speed at the ramp lip
+  margin: 0.9, // gap = this x the jump at MAX need
+  need: [28, 50, 75, 100, 125, 150, 172, 192, 212, 232, 250], // MAX to clear gap k (after island k)
+  padWins: [150, 400, 900, 1800, 3500, 6000, 10000, 16000, 25000, 40000], // islands 1..10
+  summitWins: 150000, // the Golden Temple (island 11)
+  train: [2, 3, 5, 8, 12, 18, 26, 36, 50, 70, 100], // Speed x this riding on island k (0 = the first)
+  summitTrain: 140,
+  riverY: -7, // water surface (island tops at 0)
+  failY: -3.2, // fell this far below the island tops: in the river
+  failSeconds: 1.8, // the croc has you this long, then the death screen / respawn
+  logs: { from: 2, pivot: 15, length: 13, swing: 1.2, period: [3.4, 2.4], radius: 1.3 }, // pendulums on islands from..
+  sweepers: { from: 4, radius: 12.5, height: 0.75, speed: [1.1, 2.1] }, // spinning spike logs (rad/s, first..last)
+  crocs: 16,
+  // Safe caves on the side of each island (the totem pad is inside): from/len along the island, depth out over the river.
+  bay: { from: 3, len: 12, depth: 9.5 },
+  // Temple boulders (lobby/rollers.js): roll out of the temple (spawnAt m into the temple island) back to
+  // the gate, hopping the gaps, at speed x the mode's speed (LANE.boulder.modes); every = x the mode's gap.
+  boulders: { radius: 15, sink: 4, speed: 15, spawnAt: 28, every: 1, kinds: ['temple', 'vine', 'moss'] },
+}
+
+// --- World 3: Magma Run (lobby/volcano.js) -------------------------------------------------------------
+// Basalt outposts linked by narrow bridges over a lava lake, up to the crater. Step onto a bridge
+// and it cracks: after crackDelay s it collapses from the start toward the far end at the pace of
+// a bike at MAX need[k] (no sprint), so you must outrun it. Meteors fall from the volcano onto the
+// bridges (red target rings first; a hit burns you and punches a hole in that half of the bridge
+// for holeTime s). Outposts are safe and have pads (+N Wins, back to the hub); the last is the
+// Crater Throne. A bridge rebuilds rebuild s after the collapse reaches its end. Magma boulders roll
+// down the whole course from the crater (like the hill's): wait in an outpost's cave, then race over.
+export const VOLCANO = {
+  halfWidth: 6, // bridge half-width (two lanes of tiles)
+  outpostHalf: 17,
+  startLen: 28, // the first outpost, out of the gate
+  outpostLen: 30,
+  tile: 4, // m per row of bridge tiles
+  bridgeLen: [34, 42, 50, 58, 66, 74, 82, 90, 98, 106, 116],
+  need: [60, 90, 115, 140, 162, 184, 204, 224, 244, 262, 280],
+  crackDelay: 0.3,
+  rebuild: 2.4,
+  padWins: [2000, 5000, 10000, 20000, 35000, 60000, 100000, 160000, 250000, 400000], // outposts 1..10
+  summitWins: 2000000,
+  train: [3, 5, 8, 13, 20, 30, 44, 62, 85, 115, 150],
+  summitTrain: 200,
+  lavaY: -8,
+  failY: -2.5,
+  failSeconds: 1.8,
+  // Meteors: one every `every` s (first .. last bridge) while you are on a bridge from bridge `from`.
+  meteors: { from: 3, every: [3.2, 1.3], warn: 1.25, radius: 3.4, holeTime: 3.5, aimAhead: 0.9 },
+  // Safe obsidian caves on the side of each outpost (the pad is inside).
+  bay: { from: 3, len: 12, depth: 9.5 },
+  // Magma boulders roll down from the crater over every outpost and bridge back to the gate.
+  boulders: { radius: 16, sink: 3, speed: 18, spawnAt: 30, every: 1.1, kinds: ['magma', 'obsidian', 'ember'] },
+}
 // Spin wheel (hud/spinwheel.js). Spins are banked: one free spin every freeEvery s of
 // play time (counted only while the tab is visible), plus the packs sold beside the
 // wheel (price in gems; granted free in dev builds like every premium product).

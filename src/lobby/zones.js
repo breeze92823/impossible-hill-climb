@@ -23,7 +23,7 @@ import {
   TubeGeometry,
   Vector3,
 } from 'three'
-import { BIKES, EGGS, FEATURED_BIKES, LOBBY, TREADMILLS } from '../config.js'
+import { BIKES, EGGS, FEATURED_BIKES, LOBBY, TREADMILLS, WORLDS } from '../config.js'
 import { label, neon, solidBox, std } from '../propkit.js'
 import { studMat } from './materials.js'
 import { fireParticle, glowRing, rnd, sparkleParticle } from './fx.js'
@@ -43,7 +43,9 @@ import {
   state,
   toast,
   treadmillLabel,
+  travelTo,
   treadmillUnlocked,
+  worldUnlocked,
 } from '../game/state.js'
 
 // The four zones round the hub. Each builder adds its props to `root`, its
@@ -172,8 +174,12 @@ function buildPortal(root, pools, x, z, ry) {
   g.add(glow)
   sign(g, 0, 10.2, 0, [
     { text: 'WORLD 2', size: 2.4, color: '#5dff4a' },
-    { text: 'Lvl. 75 Required', size: 1.25, color: '#ffd21f' },
+    { text: 'JUNGLE', size: 1.25, color: '#ffffff' },
   ])
+  const w2 = WORLDS[1]
+  const status = textSprite(1.2)
+  status.position.set(0, 7.4, 0)
+  g.add(status)
   solidBox(0.6, 3, 4.2, x, 3, z, ry)
   pools.glow.addEmitter({
     rate: 14,
@@ -189,10 +195,12 @@ function buildPortal(root, pools, x, z, ry) {
   return {
     update(dt, t) {
       swirl.uniforms.t.value = t
+      const open = worldUnlocked(w2.id)
+      status.userData.set(open ? 'Enter!' : `Lvl. ${w2.level} Required`, open ? '#8ef03c' : '#ffd21f')
     },
     trigger: {
       test: near(x, z, 5.5),
-      prompt: () => ({ text: 'World 2 (Level 75)', action: () => toast(state.level >= 75 ? 'World 2 opens in the next update!' : `Reach level 75 to enter World 2 (you are ${state.level})`, state.level >= 75 ? 'good' : 'error') }),
+      prompt: () => ({ text: worldUnlocked(w2.id) ? `Travel to ${w2.name}` : `${w2.name} (Level ${w2.level})`, action: () => travelTo(w2.id) }),
     },
   }
 }
@@ -385,12 +393,15 @@ function buildUpdateBoard(root, x, z, ry) {
   board.position.set(0, 3.8, 0)
   board.castShadow = true
   g.add(board)
-  const q = label('???', 2.4, { color: '#ffffff', outline: '#000000' })
-  q.position.set(0, 3.8, 0.4)
+  const q = label('JUNGLE + LAVA', 1.15, { color: '#ffd21f', outline: '#000000' })
+  q.position.set(0, 4.3, 0.4)
   g.add(q)
+  const q2 = label('Lvl. 75 · Lvl. 150', 0.8, { color: '#ffffff', outline: '#000000' })
+  q2.position.set(0, 3.1, 0.4)
+  g.add(q2)
   sign(g, 0, 8.6, 0, [
-    { text: 'New Update', size: 1.7, color: '#4dff4a' },
-    { text: 'Coming soon!', size: 0.9, color: '#ffffff' },
+    { text: 'NEW WORLDS!', size: 1.7, color: '#4dff4a' },
+    { text: 'Enter through the portal!', size: 0.9, color: '#ffffff' },
   ])
   solidBox(3.8, 3, 0.4, x, 3, z, ry)
 }
@@ -431,7 +442,7 @@ function buildHatchery(root) {
   solidBox(w / 2, rimH / 2, d / 2, 0, rimH / 2, (court.minZ + court.maxZ) / 2)
 
   const eggs = []
-  EGGS.forEach((def, i) => {
+  EGGS.filter((e) => (e.world ?? 'w1') === 'w1').forEach((def, i) => {
     const x = (i - 1) * 9
     const z = i === 1 ? 60 : 57
     const ped = buildPedestal(def.label)
