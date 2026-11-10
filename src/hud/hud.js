@@ -26,7 +26,8 @@ import { ICONS, calendarIcon, eggIcon, esc, petIcon } from './icons.js'
 import { btn, clock, createPanels, h, multText, rarityColor, setText } from './panels.js'
 import { createEggPopup } from './eggs.js'
 import { createSpinWheel } from './spinwheel.js'
-import { nextGoal } from '../lobby/lane.js'
+import { currentWorld, worldGoal } from '../game/worlds.js'
+import { WORLDS } from '../config.js'
 
 const BOULDER = {
   SLOW: { cls: 'is-slow', face: '\u{1F642}' },
@@ -54,6 +55,7 @@ export function createHud() {
     },
   }
   const panels = createPanels(root, overlayCtx)
+  overlayCtx.close = () => panels.close() // e.g. after a Worlds teleport
   let wheel = null
   const open = (name) => () => {
     wheel?.close()
@@ -102,8 +104,9 @@ export function createHud() {
   // The next hill goal: the MAX that reaches the next cave (or the summit).
   const csNext = h('div', 'hud-cs-next hud-ol', '')
   const nextText = () => {
-    const g = nextGoal(rideMax())
-    return g ? `NEXT: ${g.max} (${g.name})` : 'SUMMIT IN REACH!'
+    const g = worldGoal(rideMax())
+    const top = { w1: 'SUMMIT', w2: 'TEMPLE', w3: 'CRATER' }[currentWorld()] ?? 'SUMMIT'
+    return g ? `NEXT: ${g.max} (${g.name})` : `${top} IN REACH!`
   }
   const priceBadge = (n) => `<span class="hud-price"><span class="hud-price-i">${ICONS.gem}</span><span class="hud-ol">${n}</span></span>`
   const boostBtn = (kind, label, face, price) => {
@@ -179,7 +182,10 @@ export function createHud() {
   const speedEl = h('div', 'hud-speed hud-ol', 'Speed: 0')
   const x2El = h('div', 'hud-x2 hud-ol', 'x2 Speed')
   x2El.style.visibility = 'hidden'
-  stats.append(multEl, speedEl, x2El)
+  // The world boost (Jungle x2, Volcano x4), shown while you are in that world.
+  const worldEl = h('div', 'hud-x2 hud-world hud-ol', '')
+  worldEl.hidden = true
+  stats.append(multEl, speedEl, x2El, worldEl)
   const bar = h('div', 'hud-level', `<div class="hud-level-fill"></div><span class="hud-level-l hud-ol">Level 1</span><span class="hud-level-r hud-ol">0/0</span>`)
   const barFill = bar.querySelector('.hud-level-fill')
   const barL = bar.querySelector('.hud-level-l')
@@ -367,7 +373,7 @@ export function createHud() {
   let statAcc = 1
   let slowAcc = 1
   let lastPct = -1
-  const flags = { speed: null, wins: null, x2: null, rebirth: null, daily: null, spin: null }
+  const flags = { speed: null, wins: null, x2: null, rebirth: null, daily: null, spin: null, world: null }
   const flag = (key, v, fn) => {
     if (flags[key] !== v) {
       flags[key] = v
@@ -402,6 +408,14 @@ export function createHud() {
       winsBtn.querySelector('.hud-on').hidden = !v
     })
     flag('x2', sOn, (v) => (x2El.style.visibility = v ? 'visible' : 'hidden'))
+    flag('world', currentWorld(), (id) => {
+      const w = WORLDS.find((x) => x.id === id)
+      worldEl.hidden = !w || id === 'w1'
+      if (w && id !== 'w1') {
+        worldEl.textContent = `${w.emoji ?? ''} ${w.short} Boost x${w.bonus}`
+        worldEl.style.color = w.color ?? '#ffffff'
+      }
+    })
   }
 
   function refreshSlow() {

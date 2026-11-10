@@ -18,7 +18,10 @@
   --wide-h: max(44px, calc(62 * var(--u)));
   --gap: max(6px, calc(10 * var(--u)));
   --bw: max(2px, calc(3.5 * var(--u))); /* border width */
-  --cluster: calc(clamp(72px, 20vmin, 100px) + clamp(52px, 14vmin, 70px) + 12px); /* touch.css thumb arc */
+  /* touch.css bike controls (sizes on :root there): height of the pedals + JUMP column, and
+     width of the wider of the steer pad / pedals. */
+  --cluster: calc(var(--tc-pedal-h) + var(--tc-jump) + var(--tc-gap));
+  --cluster-w: max(calc(2 * var(--tc-steer) + var(--tc-gap)), calc(2 * var(--tc-pedal-w) + var(--tc-gap)));
   position: fixed;
   inset: 0;
   z-index: 20;
@@ -384,11 +387,11 @@
   align-items: flex-start;
   gap: max(8px, calc(16 * var(--u)));
 }
-/* touch.css draws three 44px buttons (music, day/night, respawn; 10px gaps) in the
+/* touch.css draws four 44px buttons (camera, music, day/night, respawn; 10px gaps) in the
    top-right corner on touch screens. */
 .touch-ui .hud-top {
-  right: calc(var(--sr) + var(--pad) + 160px);
-  max-width: calc(100vw - var(--reserved-w) - var(--sr) - 2 * var(--pad) - 160px);
+  right: calc(var(--sr) + var(--pad) + 214px);
+  max-width: calc(100vw - var(--reserved-w) - var(--sr) - 2 * var(--pad) - 214px);
 }
 .hud-bstatus {
   display: flex;
@@ -2523,10 +2526,10 @@ body:has(.hud-root.has-wheel) .touch-root {
   }
 }
 
-/* Touch, landscape: keep the bottom stack between the joystick and the thumb buttons. */
+/* Touch, landscape: keep the bottom stack between the steer pad and the pedals. */
 @media (orientation: landscape) {
   .touch-ui .hud-bottom {
-    width: min(calc(660 * var(--u)), calc(100vw - 2 * (var(--pad) + var(--cluster) + 14px) - var(--sl) - var(--sr)));
+    width: min(calc(660 * var(--u)), calc(100vw - 2 * (var(--pad) + var(--cluster-w) + 14px) - var(--sl) - var(--sr)));
   }
 }
 
@@ -2653,4 +2656,44 @@ body:has(.hud-root.has-wheel) .touch-root {
 }
 .hud-cs-input[hidden] {
   display: none;
+}
+
+/* --- Worlds 2 / 3 ----------------------------------------------------------------------------- */
+.hud-x2.hud-world {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding-bottom: 0;
+  --olc: #14112b;
+}
+.hud-x2.hud-world[hidden] {
+  display: none;
+}
+.hud-root .hud-wd2-btn.is-go {
+  border-color: #1d5a14;
+  background: var(--studs), linear-gradient(180deg, #8ef06a, #2fbf4a);
+  background-size: var(--stud-s) var(--stud-s), auto;
+  color: #fff;
+}
+.hud-root .hud-wd2-btn.is-go .hud-ol {
+  --olc: #14400c;
+}
+.hud-wd2-boost.hud-ol {
+  position: relative;
+  font-size: clamp(14px, 2.6vmin, 22px);
+  color: #9fe8ff;
+  --olc: #0b1a3a;
+}
+.hud-wd2-bar {
+  position: relative;
+  width: min(60%, 260px);
+  height: 10px;
+  border-radius: 6px;
+  border: 2px solid #14112b;
+  background: rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+}
+.hud-wd2-bar > span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffd21f, #ff8a1f);
 }

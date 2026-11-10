@@ -2,7 +2,7 @@
 // server's save (net.js -> hydrate/snapshot) is the only one, so guests and solo play last the page.
 // UI and world code read `state` and call the actions below; nothing else
 // writes it. Listeners: on('change'|'levelup'|'toast'|'hatch'|'bike'|'pets'|'trail'|'spins', fn).
-import { ALL_BIKES, BIKES, DAILY_REWARDS, DEV_MODE, ECONOMY, EGGS, LANE, PET_LIMITS, PETS, SPIN, STARTER_PET, TRAILS, TREADMILLS } from '../config.js'
+import { ALL_BIKES, BIKES, DAILY_REWARDS, DEV_MODE, ECONOMY, EGGS, LANE, PET_LIMITS, PETS, SPIN, STARTER_PET, TRAILS, TREADMILLS, WORLD_CHESTS, WORLDS } from '../config.js'
 
 const now = () => Date.now() / 1000
 
@@ -32,6 +32,9 @@ const fresh = () => ({
   played: 0, // seconds played
   boulderStop: 0, // unix s the boulders are held back until (Stop Boulders)
   introSeen: false, // watched or skipped the new-player intro (game/intro.js)
+  world: 'w1', // the world you are in (WORLDS id); you come back there next time
+  worlds: ['w1'], // worlds unlocked for good (reached their level once)
+  worldChests: {}, // { w2: unix s } last claim of each world hub's chest
 })
 
 export const state = fresh()
@@ -48,6 +51,11 @@ function normalize() {
   state.equippedPets = (state.equippedPets || []).filter((u) => uids.has(u)).slice(0, state.petSlots)
   state.ownedTrails = (state.ownedTrails || []).filter((id) => TRAILS.some((t) => t.id === id))
   if (state.trail !== 'none' && !state.ownedTrails.includes(state.trail)) state.trail = 'none'
+  state.worlds = ['w1', ...(Array.isArray(state.worlds) ? state.worlds : []).filter((id) => id !== 'w1' && WORLDS.some((w) => w.id === id))]
+  state.worlds = [...new Set(state.worlds)]
+  for (const w of WORLDS) if (state.level >= w.level && !state.worlds.includes(w.id)) state.worlds.push(w.id) // accounts from before the worlds
+  if (!state.worlds.includes(state.world)) state.world = 'w1'
+  state.worldChests = state.worldChests && typeof state.worldChests === 'object' ? state.worldChests : {}
 }
 
 // --- Events -----------------------------------------------------------------------
@@ -67,7 +75,7 @@ function changed() {
 
 // --- Server save (net.js) -----------------------------------------------------------
 // The keys the backend stores (backend sanitize.ts sanitizeProgress). Same names as `state`.
-const SAVED_KEYS = ["speed", "level", "xp", "wins", "gems", "rebirths", "bike", "ownedBikes", "pets", "equippedPets", "nextPetUid", "trail", "boosts", "customSpeed", "lastChest", "lastAd", "daily", "spins", "spinTimer", "ownedTrails", "petSlots", "petStorage", "played", "boulderStop", "introSeen"]
+const SAVED_KEYS = ["speed", "level", "xp", "wins", "gems", "rebirths", "bike", "ownedBikes", "pets", "equippedPets", "nextPetUid", "trail", "boosts", "customSpeed", "lastChest", "lastAd", "daily", "spins", "spinTimer", "ownedTrails", "petSlots", "petStorage", "played", "boulderStop", "introSeen", "world", "worlds", "worldChests"]
 export const snapshot = () => JSON.parse(JSON.stringify(Object.fromEntries(SAVED_KEYS.map((k) => [k, state[k]]))))
 // A save loaded from the server replaces the local progress (missing keys keep a fresh default).
 export function hydrate(doc) {
@@ -76,6 +84,7 @@ export function hydrate(doc) {
   for (const k of SAVED_KEYS) next[k] = doc[k] !== undefined ? doc[k] : f[k]
   next.boosts = { ...f.boosts, ...(doc.boosts ?? {}) }
   next.daily = { ...f.daily, ...(doc.daily ?? {}) }
+  next.worldChests = { ...(doc.worldChests ?? {}) }
   if (!next.ownedBikes.includes(next.bike)) next.ownedBikes.push(next.bike)
   Object.assign(state, next)
   normalize()
@@ -83,6 +92,7 @@ export function hydrate(doc) {
   emit("bike", state.bike)
   emit("trail", state.trail)
   emit("pets", state.equippedPets)
+  emit("world", state.world)
 }
 
 // The new-player intro has been watched or skipped: saved, so it never plays again for this account.
@@ -111,8 +121,11 @@ export function petMult() {
   }
   return m
 }
+// The world you are in boosts every Speed gain there (WORLDS[].bonus: Jungle x2, Volcano x4).
+export const worldDef = (id = state.world) => WORLDS.find((w) => w.id === id) ?? WORLDS[0]
+export const worldBonus = () => worldDef().bonus ?? 1
 // The "x2.16 Multiplier" shown in the HUD.
-export const multiplier = () => rebirthMult() * trailMult() * petMult()
+export const multiplier = () => rebirthMult() * trailMult() * petMult() * worldBonus()
 // Levels stop at the rebirth level until you rebirth ("Max Lvl. 75").
 export const maxLevel = (n = state.rebirths) => ECONOMY.rebirthBaseLevel + n * ECONOMY.rebirthLevelStep
 export const speedBoost = () => (boostActive('speed') ? ECONOMY.boostFactor : 1)
@@ -164,6 +177,41 @@ export function fmt(n, digits = 2) {
   return `${parseFloat(n.toFixed(digits))}${UNITS[u]}`
 }
 
+// --- Worlds -------------------------------------------------------------------------------
+export const worldUnlocked = (id) => state.worlds.includes(id)
+// Reaching a world's level unlocks it for good.
+function unlockWorlds() {
+  for (const w of WORLDS) {
+    if (state.level < w.level || state.worlds.includes(w.id)) continue
+    state.worlds.push(w.id)
+    emit('worldUnlocked', w)
+    toast(`${w.emoji ?? ''} ${w.name} unlocked! Open Worlds to travel`, 'reward')
+  }
+}
+// Travel to an unlocked world: main.js moves the player (on 'world').
+export function travelTo(id) {
+  const w = WORLDS.find((x) => x.id === id)
+  if (!w) return false
+  if (!worldUnlocked(id)) {
+    toast(`Reach Level ${w.level} to unlock ${w.name} (you are ${state.level})`, 'error')
+    return false
+  }
+  state.world = id
+  changed()
+  emit('world', id)
+  return true
+}
+// World hub chests (WORLD_CHESTS): own cooldown per world.
+export const worldChestReadyIn = (id) => Math.max(0, (state.worldChests[id] || 0) + (WORLD_CHESTS[id]?.cooldown ?? 900) - now())
+export function claimWorldChest(id) {
+  const c = WORLD_CHESTS[id]
+  if (!c || worldChestReadyIn(id) > 0) return false
+  state.worldChests = { ...state.worldChests, [id]: now() }
+  const [lo, hi] = c.wins
+  grant({ wins: Math.round(lo + Math.random() * (hi - lo)) }, `${worldDef(id).short} Chest`)
+  return true
+}
+
 // --- Training ------------------------------------------------------------------------
 // Adds raw speed (already including every multiplier) and its xp; levels up as needed.
 export function addSpeed(amount) {
@@ -179,6 +227,7 @@ export function addSpeed(amount) {
     state.wins += wins
     emit('levelup', { level: state.level, wins })
     need = xpNeeded()
+    unlockWorlds()
   }
   if (state.level >= cap) state.xp = Math.min(state.xp, need) // full bar at the max level
   changed()

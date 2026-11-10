@@ -479,17 +479,22 @@ function buildSummit(root) {
 // Boulders
 // =============================================================================
 // Looks: body colours (base, darker patches), embedded chunk colours, extras.
-const BOULDER_LOOKS = {
+export const BOULDER_LOOKS = {
   slate: { base: '#4f5b7d', shade: '#3b4563', chunks: ['#e8732c', '#e8732c', '#a8582a', '#c9c7e8'], band: '#9a5a2e', n: 26 },
   moss: { base: '#8f949c', shade: '#6c727c', chunks: ['#6fe03a', '#3fbf3f', '#a6f03a', '#5bd64a'], n: 34, big: true },
   granite: { base: '#a9aab3', shade: '#7f818c', chunks: ['#6d6f7a', '#8a8c96', '#5d5f69'], n: 30, flat: true },
   magma: { base: '#3a2d33', shade: '#2a2026', chunks: ['#ff6a1a', '#ffb020', '#7a2a12'], n: 30, glow: true },
+  // World 2 / 3 (lobby/rollers.js)
+  temple: { base: '#a8a27a', shade: '#8a8460', chunks: ['#5fd13a', '#3fbf3f', '#ffd21f'], n: 30, big: true, band: '#c9a23a' },
+  vine: { base: '#6f7c5a', shade: '#55604a', chunks: ['#3fbf3f', '#2e9a34', '#a6f03a'], n: 34, big: true },
+  obsidian: { base: '#241a2e', shade: '#1a1222', chunks: ['#c56bff', '#ff6a1a', '#3a2a4a'], n: 26, glow: true },
+  ember: { base: '#4a2a22', shade: '#3a2018', chunks: ['#ffb020', '#ff4a12', '#7a2a12'], n: 30, glow: true, flat: true },
 }
-export const BOULDER_KINDS = Object.keys(BOULDER_LOOKS)
+export const BOULDER_KINDS = ['slate', 'moss', 'granite', 'magma'] // the hill's own (the rest are World 2 / 3)
 
-function buildBoulderModel(kind) {
+export function buildBoulderModel(kind, r = LANE.boulder.radius) {
   const look = BOULDER_LOOKS[kind]
-  const r = LANE.boulder.radius
+  const ck = r / LANE.boulder.radius // chunk size scale
   const g = new Group()
   const geo = new IcosahedronGeometry(r, 2)
   // lumpy rock: push vertices in/out a little, consistently per shared position
@@ -520,7 +525,7 @@ function buildBoulderModel(kind) {
   const dir = new Vector3()
   for (let i = 0; i < look.n; i++) {
     dir.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize()
-    const sz = look.big ? rnd(2.4, 4.6) : look.flat ? rnd(2.2, 4) : rnd(1.8, 3.6)
+    const sz = (look.big ? rnd(2.4, 4.6) : look.flat ? rnd(2.2, 4) : rnd(1.8, 3.6)) * ck
     const m = new Mesh(new BoxGeometry(sz, look.flat ? 0.5 : sz * rnd(0.5, 0.9), sz * rnd(0.7, 1.1)), mats[i % mats.length])
     m.position.copy(dir).multiplyScalar(r * (look.flat ? 1.0 : 0.97))
     m.lookAt(dir.clone().multiplyScalar(r * 2))
@@ -530,7 +535,7 @@ function buildBoulderModel(kind) {
     g.add(m)
   }
   if (look.band) {
-    const band = new Mesh(new CylinderGeometry(r * 1.01, r * 1.01, 2.6, 32, 1, true), studMat(look.band, { tile: 1.2 }))
+    const band = new Mesh(new CylinderGeometry(r * 1.01, r * 1.01, 2.6 * ck, 32, 1, true), studMat(look.band, { tile: 1.2 }))
     band.material.side = DoubleSide
     band.rotation.z = 0.5
     g.add(band)
@@ -539,7 +544,7 @@ function buildBoulderModel(kind) {
 }
 
 // The speed sign that rides above every boulder: mode word + a face that gets angrier.
-function boulderSign() {
+export function boulderSign() {
   const g = new Group()
   const word = textSprite(6.5)
   const face = textSprite(6, 256)

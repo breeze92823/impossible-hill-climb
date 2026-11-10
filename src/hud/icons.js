@@ -430,9 +430,77 @@ export function petIcon(def) {
   } else if (k === 'dragon') {
     back = `<path d="M18 20L10 2l16 12z" fill="${s}"/><path d="M46 20l8-18-16 12z" fill="${s}"/><path d="M6 36L0 22l12 6z" fill="${s}"/><path d="M58 36l6-14-12 6z" fill="${s}"/>`
     front = `<path d="M26 14l6-6 6 6" fill="none" stroke="${s}" stroke-width="3"/><circle cx="28" cy="46" r="1.6" fill="${INK}" stroke="none"/><circle cx="36" cy="46" r="1.6" fill="${INK}" stroke="none"/>`
+  } else if (k === 'monkey') {
+    back = mirror(`<circle cx="9" cy="34" r="9" fill="${c}"/><circle cx="9" cy="34" r="5" fill="${s}" ${N}/>`) + `<path d="M27 15c2-6 8-8 10-3" fill="${c}"/>`
+    front = `<path d="M32 22c-6-4-14-2-16 6-2 6 0 9 3 12-3 4-2 11 4 14 4 2 14 2 18 0 6-3 7-10 4-14 3-3 5-6 3-12-2-8-10-10-16-6z" fill="${s}" ${N}/><ellipse cx="32" cy="46" rx="2.4" ry="1.6" fill="${INK}" ${N}/>`
+    eyes = eyePair(25, 39, 33, 0.95)
+    mouth = smile(32, 51)
+  } else if (k === 'toucan') {
+    face = `<ellipse cx="26" cy="36" rx="20" ry="21" fill="${c}" ${S} stroke-width="3.5"/>`
+    front = `<ellipse cx="22" cy="44" rx="12" ry="9" fill="${s}" ${N}/><path d="M34 28c12-3 24 0 28 8-6 5-18 6-28 4z" fill="${def.beak || '#ff9a1f'}"/><path d="M34 28c12-3 24 0 28 8-10-2-18-2-28 0z" fill="#ffd21f"/><path d="M58 37l4-1" fill="none"/>`
+    outline = ''
+    eyes = eyePair(20, 30, 28, 0.85, true)
+    mouth = ''
+    blush = blushAt([[14, 36]])
+  } else if (k === 'frog') {
+    back = mirror(`<circle cx="18" cy="16" r="10" fill="${c}"/>`)
+    face = `<ellipse cx="32" cy="38" rx="26" ry="19" fill="${c}" ${S} stroke-width="3.5"/>`
+    front = mirror(`<circle cx="18" cy="15" r="6.5" fill="#fff" ${S} stroke-width="2"/><circle cx="18.5" cy="15.5" r="3.6" fill="${INK}" ${N}/><circle cx="20" cy="14" r="1.3" fill="#fff" ${N}/>`) + `<ellipse cx="32" cy="48" rx="15" ry="5" fill="${s}" ${N} opacity=".55"/>`
+    eyes = ''
+    mouth = `<path d="M16 40q16 10 32 0" fill="none" stroke="${INK}" stroke-width="2.6" stroke-linecap="round"/>`
+    blush = blushAt([[13, 42], [51, 42]])
+  } else if (k === 'chameleon') {
+    back = `<path d="M18 22L32 2l14 20z" fill="${c}"/><path d="M50 50c10 0 12 8 6 11-4 2-7-2-4-4" fill="none" stroke-width="7"/><path d="M50 50c10 0 12 8 6 11-4 2-7-2-4-4" fill="none" stroke="${c}" stroke-width="3.5"/>`
+    front = `<path d="M10 30c8-2 14 2 22 2s14-4 22-2" fill="none" stroke="${s}" stroke-width="4"/>` + mirror(`<circle cx="18" cy="38" r="8" fill="${c}" ${S} stroke-width="2.4"/>`)
+    eyes = eyePair(18, 46, 38, 0.8)
+    mouth = `<path d="M24 47q8 4 16 0" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+  } else if (k === 'tiger') {
+    back = mirror(`<path d="M10 28L12 6l18 12z" fill="${c}"/><path d="M14 22l1-10 8 6z" fill="${s}" stroke="none"/>`)
+    front = `<path d="M17 44c4-6 10-6 15-2 5-4 11-4 15 2-3 8-9 12-15 12s-12-4-15-12z" fill="#fff6e8" ${N}/>` + (def.spots
+      ? [[18, 26], [46, 26], [32, 19], [24, 32], [40, 32]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.6" fill="${s}" ${N}/>`).join('')
+      : mirror(`<path d="M10 30l9 2M11 37l8 0M27 16l2 8" stroke="${s}" stroke-width="3" fill="none"/>`) + `<path d="M32 15v8" stroke="${s}" stroke-width="3"/>`) + nose(42)
+    if (def.eye) eyes = `${eyePair(23, 41, 34)}<ellipse cx="23" cy="34" rx="2" ry="3.4" fill="${def.eye}"/><ellipse cx="41" cy="34" rx="2" ry="3.4" fill="${def.eye}"/>`
+    mouth = smile(32, 49)
+  } else if (k === 'gorilla') {
+    back = mirror(`<circle cx="9" cy="34" r="6" fill="${c}"/>`) + (lum(c) > 0.6 ? `<path d="M20 12l4-9 4 7 4-8 4 8 4-7 4 9z" fill="${s}" ${S} stroke-width="2.2"/>` : '')
+    const skin = lum(c) > 0.6 ? '#fff1c4' : '#4a4048'
+    front = `<path d="M14 28c4-6 32-6 36 0v4H14z" fill="${c}" ${N}/><path d="M18 30c0 16 6 24 14 24s14-8 14-24c-6 4-22 4-28 0z" fill="${skin}" ${N}/>` + mirror(`<ellipse cx="28" cy="43" rx="2" ry="1.4" fill="${INK}" ${N}/>`)
+    eyes = eyePair(24, 40, 33, 0.85, true)
+    mouth = `<path d="M26 50h12" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+    blush = ''
+  } else if (k === 'salamander') {
+    face = `<ellipse cx="32" cy="38" rx="25" ry="18" fill="${c}" ${S} stroke-width="3.5"/>`
+    front = [[18, 28, 3], [44, 26, 3.4], [31, 22, 2.4], [50, 40, 2.4], [14, 40, 2.2]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${s}" ${N}/>`).join('')
+    back = mirror(`<path d="M9 30L1 22l3 14z" fill="${s}"/>`)
+    eyes = eyePair(23, 41, 36, 1, true)
+    mouth = `<path d="M22 46q10 5 20 0" fill="none" stroke="${INK}" stroke-width="2.4" stroke-linecap="round"/>`
+  } else if (k === 'imp') {
+    back = mirror(`<path d="M14 22C8 14 8 6 12 2c0 6 4 10 8 13z" fill="#2a1a1e"/><path d="M8 40C0 36-2 26 2 22c2 6 6 8 10 9z" fill="${s}"/>`)
+    eyes = eyePair(24, 40, 35, 1, true)
+    mouth = `<path d="M24 46q8 6 16 0z" fill="${INK}"/><path d="M27 46l2 3 2-3zM33 46l2 3 2-3z" fill="#fff"/>`
+  } else if (k === 'slime') {
+    face = `<path d="M8 52C6 30 18 14 32 14s26 16 24 38c-1 6-46 6-48 0z" fill="${c}" ${S} stroke-width="3.5"/>`
+    front = `<path d="M22 18c-2-6 2-10 6-8" fill="none" stroke="${c}" stroke-width="5"/><circle cx="46" cy="30" r="3" fill="${s}" ${N}/><circle cx="17" cy="44" r="2.4" fill="${s}" ${N}/><path d="M14 28a20 20 0 0 1 8-9" stroke="#fff" stroke-width="3" fill="none" opacity=".7" stroke-linecap="round"/>`
+    eyes = eyePair(24, 40, 36, 1.1, true)
+    mouth = smile(32, 45)
+    shine = ''
+  } else if (k === 'golem') {
+    face = `<path d="M10 22l8-10h28l8 10v24l-8 10H18l-8-10z" fill="${c}" ${S} stroke-width="3.5"/>`
+    back = mirror(`<rect x="0" y="26" width="12" height="14" rx="2" fill="${c}"/>`)
+    front = `<path d="M14 26h36" stroke="${INK}" stroke-width="2"/><path d="M20 16l5 8-3 6M44 18l-3 7 4 5M30 50l3-6 4 5" fill="none" stroke="${s}" stroke-width="2.6"/>` + mirror(`<rect x="19" y="31" width="8" height="5" rx="1.5" fill="${s}" ${N}/>`) + `<rect x="25" y="44" width="14" height="3.4" rx="1.5" fill="${s}" ${N}/>`
+    eyes = ''
+    mouth = ''
+    blush = ''
+    shine = ''
+  } else if (k === 'phoenix') {
+    back = `<path d="M24 16C20 6 26 0 30 2c-2 4 0 8 2 10 2-6 8-10 12-8-4 2-4 8-6 12z" fill="${s}"/>` + mirror(`<path d="M12 36C2 34-2 24 2 16c4 8 10 10 14 10z" fill="${s}"/><path d="M12 42C4 44-2 38 0 32c4 4 8 4 12 4z" fill="${c}"/>`)
+    front = `<path d="M28 38l4 9 4-9z" fill="#ffd21f"/><ellipse cx="32" cy="50" rx="10" ry="5" fill="${s}" ${N} opacity=".6"/>`
+    eyes = eyePair(24, 40, 32, 0.95, true)
+    mouth = ''
   } else {
     back = `<circle cx="15" cy="15" r="8" fill="${c}"/><circle cx="49" cy="15" r="8" fill="${c}"/>`
   }
+  if (def?.glow) extra += `<circle cx="32" cy="36" r="29" fill="none" stroke="${s}" stroke-width="2" opacity=".55"/>`
   if (eyes === null) eyes = k === 'crab' ? '' : eyePair(23, 41, 35)
   if (mouth === null) mouth = k === 'pig' ? '' : smile()
   return svg(`

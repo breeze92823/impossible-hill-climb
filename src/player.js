@@ -2,7 +2,7 @@ import { inputState } from './input.js'
 import { getYaw, syncYawToPlayer } from './camera.js'
 import { isFirstPerson } from './modes.js'
 import { RAPIER, alpha, onTick, world } from './physics.js'
-import { PHYSICS, PLAYER_DIMS, SPAWN, SPAWN_FACING } from './config.js'
+import { PHYSICS, PLAYER_DIMS, SPAWN, SPAWN_FACING, TOUCH } from './config.js'
 
 // The local player singleton, mutated in place. A kinematic Rapier capsule
 // driven by Rapier's KinematicCharacterController: it slides along walls,
@@ -19,6 +19,10 @@ export const player = {
   dims: { ...PLAYER_DIMS },
   moveRule: null, // (wishX, wishZ, sprint) -> { speed, driftX, driftZ } | null, set by the lane
   frozen: false, // squashed by a boulder: no control
+  pinned: false, // held in place (a fail animation draws the rider elsewhere): no movement at all
+  launch: 0, // > 0: take off with this upward speed on the next tick (the jungle ramps)
+  killY: PHYSICS.killY, // sank below this: respawn (each world sets its own)
+  spawn: { x: SPAWN.x, y: SPAWN.y, z: SPAWN.z, facing: SPAWN_FACING }, // where respawn() puts you (the world's hub)
 }
 
 const HALF = PLAYER_DIMS.height / 2 // capsule centre above the feet
@@ -28,6 +32,7 @@ let collider = null
 let controller = null
 let sinceGrounded = 0
 let jumpQueued = 0 // s left on a buffered jump
+let steerEased = 0 // touch steer, eased toward inputState.drive.steer
 
 export function createPlayerBody() {
   const r = PLAYER_DIMS.radius
@@ -59,7 +64,7 @@ export function resetPlayer(spawn = SPAWN, facing = SPAWN_FACING) {
 }
 
 export function respawn() {
-  resetPlayer()
+  resetPlayer(player.spawn, player.spawn.facing)
   syncYawToPlayer()
 }
 
@@ -90,6 +95,10 @@ function step(dt) {
   prev.x = player.position.x
   prev.y = player.position.y
   prev.z = player.position.z
+  if (player.pinned) {
+    player.velocity.x = player.velocity.y = player.velocity.z = 0
+    return
+  }
 
   // Camera-relative ground basis.
   const yaw = getYaw()
@@ -100,8 +109,23 @@ function step(dt) {
   const mv = inputState.move
   const len = Math.hypot(mv.x, mv.z)
   const scale = len > 1 ? 1 / len : 1
-  const wishX = (fwdX * mv.z + rightX * mv.x) * scale
-  const wishZ = (fwdZ * mv.z + rightZ * mv.x) * scale
+  let wishX = (fwdX * mv.z + rightX * mv.x) * scale
+  let wishZ = (fwdZ * mv.z + rightZ * mv.x) * scale
+
+  // Touch bike controls: steering turns the bike, GAS / BRAKE push along its own heading
+  // (keys win on a hybrid device, so a held WASD still drives camera-relative).
+  const drive = inputState.drive
+  const driving = drive.active && len < 0.01 && !player.frozen
+  if (driving) {
+    steerEased += (drive.steer - steerEased) * (1 - Math.exp(-TOUCH.steerEase * dt))
+    const rolling = Math.min(1, Math.hypot(player.velocity.x, player.velocity.z) / 4)
+    if (isFirstPerson()) player.facing = yaw + Math.PI // a look drag turns the bike too
+    const turn = steerEased * TOUCH.steerRate * (TOUCH.steerStill + (1 - TOUCH.steerStill) * rolling) * dt
+    player.facing = Math.atan2(Math.sin(player.facing - turn), Math.cos(player.facing - turn))
+    const k = drive.throttle > 0 ? drive.throttle : drive.throttle * TOUCH.reverse
+    wishX = Math.sin(player.facing) * k
+    wishZ = Math.cos(player.facing) * k
+  } else steerEased = 0
   let speed = inputState.sprint ? PHYSICS.sprintSpeed : PHYSICS.walkSpeed
   // A zone can take over movement (the hill lane: speed from the stat, slope drag, slipping).
   let driftX = 0
@@ -116,7 +140,7 @@ function step(dt) {
     }
   }
 
-  const rate = !player.grounded ? PHYSICS.airAccel : len > 0.01 ? PHYSICS.accel : PHYSICS.decel
+  const rate = !player.grounded ? PHYSICS.airAccel : Math.hypot(wishX, wishZ) > 0.01 ? PHYSICS.accel : PHYSICS.decel
   approach2D(player.velocity, wishX * speed + driftX, wishZ * speed + driftZ, rate * dt)
 
   // Jump: buffered a little before landing, and allowed a little after leaving a ledge.
@@ -126,7 +150,13 @@ function step(dt) {
   }
   sinceGrounded = player.grounded ? 0 : sinceGrounded + dt
   let jumped = false
-  if (jumpQueued > 0 && sinceGrounded <= PHYSICS.coyoteTime) {
+  if (player.launch > 0) {
+    player.velocity.y = player.launch
+    player.launch = 0
+    jumpQueued = 0
+    sinceGrounded = PHYSICS.coyoteTime + 1
+    jumped = true
+  } else if (jumpQueued > 0 && sinceGrounded <= PHYSICS.coyoteTime) {
     player.velocity.y = PHYSICS.jumpSpeed
     jumpQueued = 0
     sinceGrounded = PHYSICS.coyoteTime + 1
@@ -155,13 +185,16 @@ function step(dt) {
   player.position.y = next.y - HALF
   player.position.z = next.z
 
-  if (player.position.y < PHYSICS.killY) {
+  if (player.position.y < player.killY) {
     respawn()
     return
   }
 
-  // The body turns toward its heading; in first person it always faces the view.
-  if (isFirstPerson()) player.facing = yaw + Math.PI
+  // The body turns toward its heading; in first person it always faces the view (the touch
+  // bike already set its heading above: there the view follows the bike instead).
+  if (driving) {
+    if (isFirstPerson()) syncYawToPlayer()
+  } else if (isFirstPerson()) player.facing = yaw + Math.PI
   else if (Math.hypot(wishX, wishZ) > 0.05) {
     player.facing = rotateTowards(player.facing, Math.atan2(wishX, wishZ), PHYSICS.turnSpeed * dt)
   }

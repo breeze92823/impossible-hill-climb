@@ -752,7 +752,303 @@ function stingray(def) {
   return root
 }
 
-const KINDS = { dog, cat, bunny, pig, fox, panda, crab, dragon, chicken, cow, goat, horse, bull, llama, seahorse, pufferfish, shark, kraken, stingray }
+
+// --- Jungle (World 2) -------------------------------------------------------------------------
+function monkey(def) {
+  const p = quadruped({ bw: 0.36, bh: 0.34, bl: 0.4, legLen: 0.2, legW: 0.11, legX: 0.12, legZ: 0.13, head: [0.44, 0.4, 0.36], neck: [0.16, 0.18], color: def.color, radius: 0.1, hr: 0.12 })
+  const face = plastic(def.spot)
+  const col = plastic(def.color)
+  const { head, faceY } = p
+  const fz = p.face
+  add(head, rbox(0.32, 0.28, 0.06, 0.05), face, 0, faceY - 0.01, fz + 0.005)
+  add(head, rbox(0.22, 0.12, 0.1, 0.05), face, 0, faceY - 0.1, fz + 0.04)
+  for (const s of SIDES) add(head, rbox(0.03, 0.025, 0.02, 0.008), DARK(), s * 0.035, faceY - 0.07, fz + 0.09)
+  add(head, rbox(0.1, 0.02, 0.02, 0.008), DARK(), 0, faceY - 0.13, fz + 0.09)
+  eyes(head, faceY + 0.05, fz + 0.035, 0.08, 0.065)
+  for (const s of SIDES) {
+    add(head, cylZ(0.11, 0.05, 16), col, s * 0.25, faceY + 0.04, 0.1, 0, Math.PI / 2, 0)
+    add(head, cylZ(0.07, 0.055, 14), face, s * 0.255, faceY + 0.04, 0.1, 0, Math.PI / 2, 0)
+  }
+  add(head, rbox(0.12, 0.08, 0.12, 0.04), col, 0, faceY + 0.24, 0.02) // tuft
+  add(p.body, rbox(0.24, 0.22, 0.03, 0.02), face, 0, p.bodyY - 0.02, 0.2) // belly
+  // long curly tail
+  add(p.tail, rbox(0.06, 0.06, 0.3, 0.025), col, 0, 0.06, -0.13, 0.7)
+  const tip = group(p.tail, 0, 0.2, -0.23)
+  add(tip, torus(0.09, 0.03, TAU * 0.8, -Math.PI / 2, 6, 14), col, 0, 0.08, 0, 0, Math.PI, 0)
+  return p.root
+}
+
+function toucan(def) {
+  const root = new Group()
+  const hop = group(root)
+  const body = group(hop)
+  const col = plastic(def.color)
+  const chest = plastic(def.spot)
+  const beakCol = plastic(def.beak ?? '#ff9a1f', 0.3)
+  const legLen = 0.18
+  const bodyY = legLen + 0.2
+  const torso = add(body, rbox(0.34, 0.42, 0.38, 0.12), col, 0, bodyY, 0)
+  add(body, rbox(0.26, 0.26, 0.04, 0.06), chest, 0, bodyY + 0.04, 0.18)
+  const head = group(body, 0, bodyY + 0.2, 0.06)
+  add(head, rbox(0.3, 0.28, 0.28, 0.1), col, 0, 0.12, 0)
+  add(head, rbox(0.24, 0.12, 0.04, 0.04), chest, 0, 0.06, 0.13)
+  // the big curved beak (two tones)
+  add(head, rbox(0.14, 0.15, 0.34, 0.05), beakCol, 0, 0.13, 0.28, -0.1)
+  add(head, rbox(0.1, 0.06, 0.22, 0.03), plastic('#ffd21f', 0.3), 0, 0.2, 0.32, -0.12)
+  add(head, rbox(0.12, 0.04, 0.08, 0.02), DARK(), 0, 0.09, 0.44, -0.2)
+  eyes(head, 0.16, 0.14, 0.09, 0.055, false, true)
+  const wings = []
+  for (const s of SIDES) {
+    const w = group(body, s * 0.17, bodyY + 0.1, 0)
+    w.userData.side = s
+    add(w, rbox(0.06, 0.3, 0.32, 0.04), col, s * 0.02, -0.08, -0.03)
+    wings.push(w)
+  }
+  const tail = group(body, 0, bodyY - 0.08, -0.18)
+  add(tail, rbox(0.2, 0.06, 0.26, 0.03), col, 0, -0.02, -0.1, 0.5)
+  const legs = []
+  for (const s of SIDES) {
+    const hip = group(hop, s * 0.08, legLen + 0.02, 0.02)
+    add(hip, rbox(0.045, legLen + 0.04, 0.045, 0.015), plastic('#5f8fff', 0.4), 0, -(legLen + 0.02) / 2, 0)
+    add(hip, rbox(0.11, 0.03, 0.13, 0.012), plastic('#5f8fff', 0.4), 0, -(legLen + 0.02) + 0.015, 0.03)
+    legs.push(hip)
+  }
+  root.userData = { legs, legPhase: [0, Math.PI], tail, head, headZ: head.position.z, body, hop, torso, bodyY, wings }
+  return root
+}
+
+function frog(def) {
+  const root = new Group()
+  const hop = group(root)
+  const body = group(hop)
+  const col = plastic(def.color)
+  const spot = plastic(def.spot)
+  const belly = plastic(lighten(def.color, 0.55))
+  const bodyY = 0.2
+  const torso = add(body, rbox(0.5, 0.3, 0.46, 0.13), col, 0, bodyY, 0)
+  add(body, rbox(0.4, 0.06, 0.34, 0.03), belly, 0, bodyY - 0.13, 0.04)
+  for (const [x, z, r] of [[-0.12, -0.08, 0.07], [0.14, 0.02, 0.06], [0.02, -0.16, 0.05]]) add(body, rbox(r, 0.02, r, 0.008), spot, x, bodyY + 0.152, z)
+  const head = group(body, 0, bodyY + 0.08, 0.14)
+  add(head, rbox(0.46, 0.18, 0.24, 0.08), col, 0, 0.02, 0.04)
+  for (const s of SIDES) {
+    add(head, rbox(0.16, 0.16, 0.16, 0.07), col, s * 0.15, 0.13, 0.04)
+    add(head, rbox(0.12, 0.12, 0.03, 0.05), WHITE(), s * 0.15, 0.14, 0.12)
+    add(head, rbox(0.07, 0.09, 0.03, 0.02), EYE(), s * 0.15, 0.14, 0.135)
+    add(head, rbox(0.025, 0.025, 0.01, 0.006), SHINE(), s * 0.15 - 0.015, 0.165, 0.152)
+    add(head, rbox(0.06, 0.03, 0.012, 0.006), BLUSH(), s * 0.17, 0, 0.165)
+  }
+  add(head, rbox(0.26, 0.018, 0.02, 0.008), DARK(), 0, -0.02, 0.165)
+  const legs = []
+  for (const [x, z, back] of [[-0.2, 0.14, 0], [0.2, 0.14, 0], [-0.24, -0.14, 1], [0.24, -0.14, 1]]) {
+    const hip = group(hop, x, 0.12, z)
+    if (back) {
+      add(hip, rbox(0.14, 0.14, 0.22, 0.05), col, Math.sign(x) * 0.03, -0.02, 0.0)
+      add(hip, rbox(0.12, 0.04, 0.2, 0.015), spot, Math.sign(x) * 0.03, -0.1, 0.08)
+    } else {
+      add(hip, rbox(0.07, 0.12, 0.07, 0.03), col, 0, -0.05, 0)
+      add(hip, rbox(0.12, 0.03, 0.12, 0.012), spot, 0, -0.11, 0.03)
+    }
+    legs.push(hip)
+  }
+  const tail = group(body, 0, bodyY, -0.22)
+  root.userData = { legs, legPhase: [0, 0, 0, 0], tail, head, body, hop, torso, bodyY, hopper: true }
+  return root
+}
+
+// Lizards: chameleon (crest, curled tail, turret eyes) and salamander (flat, spotted, wavy tail).
+function lizard(def, kind) {
+  const p = quadruped({ bw: 0.32, bh: 0.24, bl: 0.6, legLen: 0.14, legW: 0.09, legX: 0.17, legZ: 0.2, head: [0.3, 0.24, 0.3], neck: [0.06, 0.3], color: def.color, radius: 0.08 })
+  const spot = plastic(def.spot)
+  const col = plastic(def.color)
+  const { head, faceY } = p
+  const fz = p.face
+  if (kind === 'chameleon') {
+    for (let i = 0; i < 5; i++) add(p.body, cone(0.045, 0.1, 4), spot, 0, p.bodyY + 0.15, 0.22 - i * 0.11)
+    add(head, cone(0.12, 0.16, 4), col, 0, faceY + 0.17, -0.04, -0.6)
+    for (const s of SIDES) add(head, cylZ(0.075, 0.1, 12), col, s * 0.15, faceY + 0.06, fz - 0.05, 0, s * 0.6, 0)
+    eyes(head, faceY + 0.06, fz, 0.1, 0.05, false)
+    add(p.body, rbox(0.33, 0.04, 0.1, 0.015), spot, 0, p.bodyY + 0.02, 0.05)
+    add(p.body, rbox(0.33, 0.04, 0.1, 0.015), spot, 0, p.bodyY + 0.02, -0.15)
+    add(p.tail, rbox(0.09, 0.09, 0.26, 0.04), col, 0, -0.02, -0.12)
+    const curl = group(p.tail, 0, -0.04, -0.26)
+    add(curl, torus(0.08, 0.035, TAU * 0.85, -Math.PI / 2, 6, 14), col, 0, -0.06, 0, 0, Math.PI, 0)
+  } else {
+    for (const [x, z] of [[-0.09, 0.15], [0.1, 0.0], [-0.08, -0.16], [0.09, 0.22], [0, -0.06]]) add(p.body, rbox(0.07, 0.02, 0.07, 0.01), spot, x, p.bodyY + 0.122, z)
+    eyes(head, faceY + 0.05, fz, 0.08, 0.06, false, true)
+    add(head, rbox(0.18, 0.015, 0.02, 0.006), DARK(), 0, faceY - 0.06, fz + 0.01)
+    add(p.tail, rbox(0.12, 0.1, 0.3, 0.04), col, 0, -0.02, -0.14)
+    const t2 = group(p.tail, 0, -0.03, -0.29)
+    add(t2, rbox(0.08, 0.07, 0.24, 0.03), col, 0, 0, -0.1)
+    add(t2, rbox(0.06, 0.02, 0.06, 0.008), spot, 0, 0.045, -0.12)
+    p.root.userData.tail2 = t2
+  }
+  return p.root
+}
+const chameleon = (def) => lizard(def, 'chameleon')
+const salamander = (def) => lizard(def, 'salamander')
+
+function tiger(def) {
+  const p = quadruped({ bw: 0.44, bh: 0.36, bl: 0.66, legLen: 0.24, legW: 0.13, legX: 0.14, legZ: 0.22, head: [0.44, 0.38, 0.38], neck: [0.12, 0.3], color: def.color })
+  const stripe = plastic(def.spot)
+  const col = plastic(def.color)
+  const white = plastic('#fff6e8')
+  const { head, faceY } = p
+  const fz = p.face
+  for (const s of SIDES) {
+    add(head, pyramid(0.09, 0.14), col, s * 0.14, faceY + 0.25, 0.08)
+    add(head, pyramid(0.05, 0.08), stripe, s * 0.14, faceY + 0.24, 0.12)
+  }
+  add(head, rbox(0.24, 0.12, 0.08, 0.04), white, 0, faceY - 0.08, fz + 0.03)
+  add(head, rbox(0.07, 0.045, 0.03, 0.012), DARK(), 0, faceY - 0.04, fz + 0.075)
+  for (const s of SIDES) for (const dy of [0.12, 0.2]) add(head, rbox(0.1, 0.025, 0.012, 0.006), stripe, s * 0.12, faceY + dy, fz + 0.004, 0, 0, s * 0.3)
+  add(head, rbox(0.03, 0.12, 0.012, 0.006), stripe, 0, faceY + 0.17, fz + 0.004)
+  eyes(head, faceY + 0.05, fz, 0.1, 0.075, false, lum(def.color) < 0.3)
+  if (def.eye) for (const s of SIDES) add(head, rbox(0.05, 0.065, 0.012, 0.01), plastic(def.eye, 0.2), s * 0.1, faceY + 0.05, fz + 0.03)
+  // body markings: stripes (tiger) or rosettes (jaguar)
+  if (def.spots) {
+    for (let i = 0; i < 9; i++) add(p.body, rbox(0.07, 0.02, 0.07, 0.01), stripe, ((i % 3) - 1) * 0.13, p.bodyY + 0.182, 0.22 - Math.floor(i / 3) * 0.2)
+  } else {
+    for (let i = 0; i < 4; i++) {
+      add(p.body, rbox(0.46, 0.03, 0.05, 0.012), stripe, 0, p.bodyY + 0.17, 0.2 - i * 0.14)
+      for (const s of SIDES) add(p.body, rbox(0.03, 0.18, 0.05, 0.012), stripe, s * 0.222, p.bodyY + 0.05, 0.2 - i * 0.14)
+    }
+  }
+  add(p.body, rbox(0.3, 0.03, 0.4, 0.012), white, 0, p.bodyY - 0.172, 0.02)
+  add(p.tail, rbox(0.08, 0.08, 0.32, 0.03), col, 0, 0.08, -0.13, 0.6)
+  add(p.tail, rbox(0.09, 0.09, 0.08, 0.03), stripe, 0, 0.2, -0.27, 0.6)
+  return p.root
+}
+
+function gorilla(def) {
+  const p = quadruped({ bw: 0.62, bh: 0.5, bl: 0.5, legLen: 0.2, legW: 0.15, legX: 0.18, legZ: 0.12, head: [0.4, 0.38, 0.34], neck: [0.2, 0.22], color: def.color, radius: 0.12 })
+  const silver = plastic(def.spot)
+  const col = plastic(def.color)
+  const skin = plastic(lum(def.color) > 0.6 ? lighten(def.color, 0.35) : '#2a2228')
+  const { head, faceY } = p
+  const fz = p.face
+  // front legs are big arms (knuckle walking)
+  for (const i of [0, 1]) {
+    const arm = p.legs[i]
+    add(arm, rbox(0.2, 0.36, 0.2, 0.06), col, 0, -0.08, 0.04)
+    add(arm, rbox(0.22, 0.1, 0.22, 0.04), skin, 0, -0.2, 0.06)
+  }
+  p.body.rotation.x = -0.12
+  add(p.body, rbox(0.52, 0.16, 0.46, 0.06), silver, 0, p.bodyY + 0.2, -0.04) // silver back
+  add(p.body, rbox(0.36, 0.3, 0.04, 0.06), skin, 0, p.bodyY, 0.25) // chest
+  add(head, rbox(0.3, 0.26, 0.06, 0.06), skin, 0, faceY - 0.04, fz + 0.01)
+  add(head, rbox(0.34, 0.07, 0.08, 0.03), col, 0, faceY + 0.1, fz + 0.02) // brow
+  add(head, rbox(0.22, 0.11, 0.08, 0.04), skin, 0, faceY - 0.12, fz + 0.05)
+  for (const s of SIDES) add(head, rbox(0.035, 0.03, 0.02, 0.008), DARK(), s * 0.04, faceY - 0.08, fz + 0.095)
+  add(head, rbox(0.12, 0.02, 0.02, 0.008), DARK(), 0, faceY - 0.15, fz + 0.095)
+  eyes(head, faceY + 0.03, fz + 0.04, 0.08, 0.055, false, true)
+  if (lum(def.color) > 0.6) {
+    // Idol Kong: a jade crown
+    for (let i = -2; i <= 2; i++) add(head, cone(0.04, 0.12, 4), silver, i * 0.07, faceY + 0.27, 0.08)
+    add(head, rbox(0.36, 0.05, 0.3, 0.02), silver, 0, faceY + 0.2, 0.06)
+  }
+  return p.root
+}
+
+// --- Volcano (World 3) --------------------------------------------------------------------------
+function imp(def) {
+  const float = 0.5
+  const { root, hop, body } = swimmer(float)
+  const col = plastic(def.color)
+  const spot = plastic(def.spot)
+  const torso = add(body, rbox(0.34, 0.36, 0.3, 0.12), col, 0, 0.2, 0)
+  add(body, rbox(0.22, 0.2, 0.03, 0.06), spot, 0, 0.16, 0.15)
+  const head = group(body, 0, 0.44, 0.02)
+  add(head, rbox(0.38, 0.34, 0.34, 0.12), col, 0, 0.06, 0)
+  for (const s of SIDES) add(head, cone(0.05, 0.18, 5), plastic('#2a1a1e'), s * 0.13, 0.28, 0, 0, 0, -s * 0.35)
+  eyes(head, 0.09, 0.17, 0.09, 0.07, false, true)
+  add(head, rbox(0.16, 0.03, 0.02, 0.01), DARK(), 0, -0.03, 0.172)
+  for (const s of SIDES) add(head, cone(0.018, 0.05, 4), WHITE(), s * 0.045, -0.055, 0.175, Math.PI)
+  const wings = []
+  for (const s of SIDES) {
+    const w = group(body, s * 0.15, 0.3, -0.12)
+    w.userData.side = s
+    bar(w, [0, 0, 0], [s * 0.32, 0.16, -0.06], 0.04, 0.04, col)
+    add(w, rbox(0.3, 0.02, 0.2, 0.01), spot, s * 0.18, 0.04, -0.1, 0, 0, s * 0.3)
+    wings.push(w)
+  }
+  const tail = group(body, 0, 0.08, -0.15)
+  bar(tail, [0, 0, 0], [0, -0.12, -0.24], 0.035, 0.035, col)
+  add(tail, pyramid(0.07, 0.1), spot, 0, -0.14, -0.27, -Math.PI / 2)
+  root.userData = { legs: [], legPhase: [], swim: true, float, tail, head, body, hop, torso, bodyY: 0.2, wings }
+  return root
+}
+
+function slime(def) {
+  const { root, hop, body } = swimmer(0)
+  const col = cached(mats, key('slime', def.color), () => new MeshStandardMaterial({ color: def.color, roughness: 0.15, metalness: 0.05, transparent: true, opacity: 0.92 }))
+  const spot = plastic(def.spot)
+  const torso = add(body, rbox(0.56, 0.44, 0.52, 0.2), col, 0, 0.22, 0)
+  add(body, rbox(0.36, 0.2, 0.34, 0.12), col, 0, 0.48, -0.02)
+  for (const [x, y, z] of [[-0.2, 0.08, 0.2], [0.22, 0.12, 0.16], [0.1, 0.36, -0.2], [-0.18, 0.3, -0.18]]) add(body, rbox(0.08, 0.08, 0.08, 0.035), spot, x, y, z)
+  const head = group(body, 0, 0.26, 0.26)
+  eyes(head, 0.06, 0.005, 0.11, 0.08, true, true)
+  add(head, rbox(0.12, 0.04, 0.02, 0.015), DARK(), 0, -0.06, 0.008)
+  const tail = group(body, 0, 0.2, -0.26)
+  root.userData = { legs: [], legPhase: [], swim: true, float: 0, tail, head, body, hop, torso, bodyY: 0.22, blob: true }
+  return root
+}
+
+function golem(def) {
+  const p = quadruped({ bw: 0.56, bh: 0.46, bl: 0.54, legLen: 0.22, legW: 0.18, legX: 0.18, legZ: 0.16, head: [0.36, 0.3, 0.3], neck: [0.16, 0.26], color: def.color, radius: 0.04, hr: 0.04 })
+  const glowM = plastic(def.spot)
+  const dark = plastic(lighten(def.color, 0.12))
+  const { head, faceY } = p
+  const fz = p.face
+  // rock chunks + glowing cracks
+  for (const [x, y, z, w] of [[-0.2, 0.2, 0.1, 0.2], [0.18, 0.22, -0.12, 0.22], [0, 0.26, 0.0, 0.18], [-0.12, 0.18, -0.2, 0.16]]) add(p.body, rbox(w, w * 0.8, w, 0.03), dark, x, p.bodyY + y, z, 0.2, x * 2, 0.1)
+  for (const [x, z, ry] of [[0.0, 0.1, 0.4], [-0.1, -0.12, -0.6], [0.14, -0.04, 1.2]]) add(p.body, rbox(0.22, 0.015, 0.03, 0.006), glowM, x, p.bodyY + 0.235, z, 0, ry, 0)
+  for (const s of SIDES) add(p.body, rbox(0.015, 0.2, 0.03, 0.006), glowM, s * 0.282, p.bodyY, 0.05, 0, 0, s * 0.3)
+  add(p.body, rbox(0.3, 0.2, 0.02, 0.006), glowM, 0, p.bodyY, 0.272) // glowing core
+  for (const leg of p.legs) add(leg, rbox(0.22, 0.1, 0.22, 0.03), dark, 0, -0.2, 0)
+  add(head, rbox(0.4, 0.08, 0.1, 0.02), dark, 0, faceY + 0.1, fz + 0.02) // brow
+  for (const s of SIDES) {
+    add(head, rbox(0.09, 0.05, 0.02, 0.008), glowM, s * 0.09, faceY + 0.02, fz + 0.008)
+    add(head, rbox(0.12, 0.12, 0.12, 0.02), dark, s * 0.2, faceY + 0.12, 0.0, 0.3, 0, s * 0.3)
+  }
+  add(head, rbox(0.16, 0.03, 0.02, 0.006), glowM, 0, faceY - 0.08, fz + 0.008)
+  add(p.tail, rbox(0.1, 0.1, 0.1, 0.02), dark, 0, 0, -0.03)
+  return p.root
+}
+
+function phoenix(def) {
+  const float = 0.55
+  const { root, hop, body } = swimmer(float)
+  const col = plastic(def.color)
+  const spot = plastic(def.spot)
+  const beak = plastic('#ffd21f', 0.3)
+  const torso = add(body, rbox(0.32, 0.34, 0.42, 0.12), col, 0, 0.18, 0)
+  add(body, rbox(0.22, 0.2, 0.04, 0.05), spot, 0, 0.16, 0.2)
+  const head = group(body, 0, 0.36, 0.14)
+  add(head, rbox(0.26, 0.26, 0.26, 0.09), col, 0, 0.06, 0)
+  add(head, cone(0.06, 0.14, 4), beak, 0, 0.03, 0.18, Math.PI / 2)
+  for (let i = 0; i < 3; i++) add(head, cone(0.04, 0.2 - i * 0.03, 4), spot, 0, 0.2 + i * 0.02, -0.04 - i * 0.06, -0.6 - i * 0.2)
+  eyes(head, 0.1, 0.13, 0.075, 0.055, false, true)
+  const wings = []
+  for (const s of SIDES) {
+    const w = group(body, s * 0.15, 0.26, 0)
+    w.userData.side = s
+    add(w, rbox(0.36, 0.04, 0.3, 0.02), col, s * 0.2, 0.02, -0.02, 0, 0, s * 0.2)
+    add(w, rbox(0.3, 0.035, 0.2, 0.015), spot, s * 0.42, 0.08, -0.1, 0, 0, s * 0.3)
+    add(w, cone(0.05, 0.22, 4), spot, s * 0.55, 0.13, -0.18, Math.PI / 2, 0, s * 0.6)
+    wings.push(w)
+  }
+  const tail = group(body, 0, 0.12, -0.22)
+  for (const [ry, len] of [[-0.35, 0.36], [0, 0.46], [0.35, 0.36]]) {
+    const f = group(tail, 0, 0, 0)
+    f.rotation.y = ry
+    add(f, rbox(0.07, 0.03, len, 0.012), spot, 0, -0.04, -len / 2, 0.3)
+    add(f, cone(0.05, 0.12, 4), col, 0, -0.1, -len - 0.02, -Math.PI / 2 + 0.3)
+  }
+  root.userData = { legs: [], legPhase: [], swim: true, float, tail, head, body, hop, torso, bodyY: 0.18, wings }
+  return root
+}
+
+const KINDS = { dog, cat, bunny, pig, fox, panda, crab, dragon, chicken, cow, goat, horse, bull, llama, seahorse, pufferfish, shark, kraken, stingray, monkey, toucan, frog, chameleon, tiger, gorilla, salamander, imp, slime, golem, phoenix }
 
 // def: { kind, color, spot, size?, ...kind extras (dog: ears, fluffy, bow) } from PETS.
 export function buildPet(def) {
@@ -761,6 +1057,14 @@ export function buildPet(def) {
   pet.userData.kind = def.kind
   const size = def.size ?? 1
   if (size !== 1) pet.scale.setScalar(size)
+  // Lava pets: their accent colour glows (HDR emissive, blooms on High/Ultra).
+  if (def.glow) {
+    const spot = plastic(def.spot)
+    const hot = cached(mats, key('glow', def.spot), () => new MeshStandardMaterial({ color: def.spot, roughness: 0.35, emissive: def.spot, emissiveIntensity: 1.6 }))
+    pet.traverse((o) => {
+      if (o.isMesh && o.material === spot) o.material = hot
+    })
+  }
   return pet
 }
 
@@ -789,6 +1093,11 @@ function swim(u, t, moving) {
     u.body.rotation.set(0, Math.sin(ph) * 0.08, Math.sin(t * 1.1) * 0.04)
     u.head.rotation.y = -Math.sin(ph) * 0.06
     u.tail.rotation.y = Math.sin(ph - 1) * 0.45
+  } else if (u.blob) {
+    const k = moving ? Math.abs(Math.sin(t * 7)) : Math.abs(Math.sin(t * 2)) * 0.3
+    u.hop.position.y = k * (moving ? 0.22 : 0.04)
+    u.torso.scale.set(1 + (1 - k) * 0.12, 1 - (1 - k) * 0.14 + k * 0.06, 1 + (1 - k) * 0.12)
+    u.body.rotation.set(0, 0, Math.sin(t * 1.6) * 0.05)
   } else if (kind === 'kraken') {
     u.body.rotation.set(0, 0, Math.sin(t * 1.3) * 0.06)
     u.torso.scale.set(1, 1 + Math.sin(ph) * 0.04, 1)
@@ -825,7 +1134,7 @@ export function animatePet(pet, t, moving) {
   const kind = u.kind
   if (moving) {
     const w = t * (kind === 'crab' ? 14 : 11)
-    if (kind === 'bunny') {
+    if (kind === 'bunny' || u.hopper) {
       const h = Math.sin(t * 8)
       u.hop.position.y = Math.max(0, h) * 0.12
       u.legs.forEach((leg, i) => (leg.rotation.x = (i < 2 ? -1 : 1) * Math.max(0, h) * 0.5))

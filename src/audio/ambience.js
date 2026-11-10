@@ -22,6 +22,7 @@ const s = {
   alt: 0,
   nextGust: 0,
   nextBird: 0,
+  birds: 1, // 0 = no birdsong (the volcano); 2 = lots (the jungle)
 }
 
 const filt = (type, f, q = 0.7) => {
@@ -125,12 +126,12 @@ function schedule() {
   const ahead = t + M.tick * 1.5
   if (s.nextGust < ahead) s.nextGust = gust(Math.max(t, s.nextGust))
   if (s.nextBird < ahead) {
-    if (s.alt < M.birdMaxAlt) {
+    if (s.alt < M.birdMaxAlt && s.birds) {
       bird(Math.max(t, s.nextBird))
       // Another bird often answers.
-      if (Math.random() < 0.35) bird(Math.max(t, s.nextBird) + rnd(0.6, 1.4))
+      if (Math.random() < 0.35 * s.birds) bird(Math.max(t, s.nextBird) + rnd(0.6, 1.4))
     }
-    s.nextBird = t + rnd(...M.birdEvery)
+    s.nextBird = t + rnd(...M.birdEvery) / Math.max(1, s.birds)
   }
 }
 
@@ -142,4 +143,9 @@ export function setAltitude(m) {
   const k = windK()
   s.wind.gain.setTargetAtTime(M.breeze + (M.wind - M.breeze) * Math.pow(k, 0.8), t, 0.5)
   s.whistle.gain.setTargetAtTime(M.whistle * Math.max(0, (k - 0.35) / 0.65), t, 0.5)
+}
+
+// Birdsong level per world: 0 none, 1 the lobby, 2 the jungle.
+export function setBirds(k) {
+  s.birds = Math.max(0, Number(k) || 0)
 }
