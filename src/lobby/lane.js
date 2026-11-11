@@ -817,11 +817,8 @@ export function buildLane(scene, pools, audio = {}) {
       rider.s = s
       rider.open = Math.abs(px) <= HW - 0.2
       rider.at = performance.now()
-      if (!rider.open) return { speed: v } // in a cave: safe and flat-ish
-      // Always forward: a bike weaker than the slope just climbs slower (never stops or slides).
-      const up = Math.min(1, Math.max(LANE.need.minUp, max / needAt(s)))
-      const uphill = Math.max(0, -wishZ) // north is uphill
-      return { speed: v * (1 - uphill * (1 - up)) }
+      // No slope drag: the bike keeps its full speed all the way up, however steep the lane gets.
+      return { speed: v }
     },
     // dt, t, list of riders on the hill [{ x, z, alive }] -> crush test results via callbacks
     update(dt, t, stopped) {
